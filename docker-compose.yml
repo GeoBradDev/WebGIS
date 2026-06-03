@@ -1,0 +1,91 @@
+# Local development stack for the WebGIS template.
+#
+#   docker compose up --build              # db + backend + frontend
+#   docker compose --profile celery up     # also start redis + a celery worker
+#
+# This mirrors the production DO App Platform spec in .do/app.yaml: the `db`
+# service maps to DO Managed Postgres, `backend` to the web service, and
+# `frontend` to the static-site component (here it runs the Vite dev server).
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-webgisdb}
+      POSTGRES_USER: ${POSTGRES_USER:-webgis}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-webgis}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Host port is configurable to avoid clashing with a local Postgres.
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-webgis} -d ${POSTGRES_DB:-webgisdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      # Override host/engine so the app talks to the compose db service.
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_ENGINE: django.contrib.gis.db.backends.postgis
+      RUN_MIGRATIONS: "true"
+    # Dev server with autoreload; the image's default CMD runs gunicorn for prod.
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    image: node:20
+    working_dir: /app
+    env_file:
+      - path: ./frontend/.env
+        required: false
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["celery"]
+    ports:
+      - "6379:6379"
+
+  celery:
+    build: ./backend
+    profiles: ["celery"]
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+      POSTGRES_ENGINE: django.contrib.gis.db.backends.postgis
+      REDIS_URL: redis://redis:6379/0
+    command: celery -A WebGIS worker -l info
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+volumes:
+  pgdata:

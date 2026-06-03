@@ -1,0 +1,44 @@
+name: Backend CI
+
+# Monorepo: only runs when the backend (or this workflow) changes.
+# Checks run inside the production Docker image, which is the only place GDAL/
+# GEOS/PROJ are guaranteed to match the pinned binding (the bare runner cannot
+# pip-install the GDAL binding without a matching system libgdal).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-ci.yml'
+
+jobs:
+  build-and-check:
+    runs-on: ubuntu-latest
+    env:
+      # Throwaway values; checks/tests here do not touch a database.
+      DOCKER_RUN: docker run --rm -e SECRET_KEY=ci-not-secret -e DEBUG=True -e RUN_MIGRATIONS=false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t webgis-backend ./backend
+
+      - name: Django system check
+        run: $DOCKER_RUN --entrypoint python webgis-backend manage.py check
+
+      - name: Check for missing migrations
+        run: $DOCKER_RUN --entrypoint python webgis-backend manage.py makemigrations --check --dry-run
+
+      - name: Run tests
+        run: |
+          set +e
+          $DOCKER_RUN --entrypoint pytest webgis-backend -q
+          code=$?
+          set -e
+          # pytest exit 5 == "no tests collected"; treat as pass until tests exist.
+          if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then exit "$code"; fi
+          echo "pytest exit $code"

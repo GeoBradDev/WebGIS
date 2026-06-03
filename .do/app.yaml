@@ -1,0 +1,141 @@
+# DigitalOcean App Platform spec for the WebGIS template.
+#
+# Validate:  doctl apps spec validate .do/app.yaml
+# Create:    doctl apps create --spec .do/app.yaml
+#
+# This is a single monorepo: every component points at the SAME github.repo and
+# is scoped to its subdirectory via source_dir / dockerfile_path.
+#
+# Before first deploy, set github.repo/branch to your monorepo and set the
+# SECRET-typed env values in the App Platform UI (SECRET keys cannot be stored
+# in this file). The managed Postgres `db` component exposes its connection
+# string to the other components via the bindable ${db.DATABASE_URL} variable.
+name: webgis
+region: nyc
+
+databases:
+  - name: db
+    engine: PG
+    version: "16"
+    # PostGIS ships with DO Managed Postgres but must be enabled; the
+    # CreateExtension('postgis') migration handles that on first migrate.
+
+services:
+  - name: backend
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    github:
+      repo: your-org/webgis
+      branch: main
+      deploy_on_push: true
+    http_port: 8080
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    health_check:
+      http_path: /healthz
+    # Backend owns the API + auth + admin + static; the frontend gets the rest.
+    routes:
+      - path: /api
+      - path: /_allauth
+      - path: /admin
+      - path: /static
+    envs:
+      - key: SECRET_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: DEBUG
+        scope: RUN_AND_BUILD_TIME
+        value: "False"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+      - key: ALLOWED_HOSTS
+        scope: RUN_TIME
+        value: ${APP_DOMAIN}
+      - key: CSRF_TRUSTED_ORIGINS
+        scope: RUN_TIME
+        value: https://${APP_DOMAIN}
+      - key: FRONTEND_URL
+        scope: RUN_TIME
+        value: https://${APP_DOMAIN}
+      # Web replicas should not migrate on boot; the pre-deploy job does it.
+      - key: RUN_MIGRATIONS
+        scope: RUN_TIME
+        value: "false"
+      - key: EMAIL_HOST_USER
+        scope: RUN_TIME
+        type: SECRET
+      - key: EMAIL_HOST_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+      # Uncomment if you attach a Redis dev database for Celery:
+      # - key: REDIS_URL
+      #   scope: RUN_TIME
+      #   value: ${redis.DATABASE_URL}
+
+static_sites:
+  - name: frontend
+    source_dir: frontend
+    github:
+      repo: your-org/webgis
+      branch: main
+      deploy_on_push: true
+    build_command: npm install && npm run build
+    output_dir: dist
+    # SPA fallback so client-side routes (/verify-email/:key, /reset-password/...)
+    # resolve to index.html.
+    catchall_document: index.html
+    routes:
+      - path: /
+    envs:
+      # Vite inlines these at build time; they must be BUILD_TIME scoped.
+      - key: VITE_API_URL
+        scope: BUILD_TIME
+        value: https://${APP_DOMAIN}/api
+      - key: VITE_MUNI_GEOJSON_URL
+        scope: BUILD_TIME
+        value: https://services2.arcgis.com/w657bnjzrjguNyOy/ArcGIS/rest/services/Municipal_Boundaries_Line/FeatureServer/1/query?where=1%3D1&outFields=*&f=geojson
+      # Point these at your DO Spaces bucket (configure CORS for Range requests):
+      - key: VITE_BASEMAP_PMTILES_URL
+        scope: BUILD_TIME
+        value: https://your-space.nyc3.cdn.digitaloceanspaces.com/basemap.pmtiles
+      - key: VITE_GLYPHS_URL
+        scope: BUILD_TIME
+        value: https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf
+
+jobs:
+  # Runs once per deploy, before the new backend goes live. Owns migrations
+  # (including CreateExtension('postgis')) so web replicas never race.
+  - name: migrate
+    kind: PRE_DEPLOY
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    github:
+      repo: your-org/webgis
+      branch: main
+    run_command: python manage.py migrate --no-input
+    instance_size_slug: basic-xxs
+    envs:
+      - key: SECRET_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: DEBUG
+        scope: RUN_TIME
+        value: "False"
+      - key: DATABASE_URL
+        scope: RUN_TIME
+        value: ${db.DATABASE_URL}
+
+# Optional Celery worker for async allauth emails. Requires a Redis database
+# component (add under `databases:` as engine REDIS) and REDIS_URL on each
+# component that needs it.
+# workers:
+#   - name: celery
+#     dockerfile_path: backend/Dockerfile
+#     source_dir: backend
+#     run_command: celery -A WebGIS worker -l info
+#     instance_size_slug: basic-xxs
+#     envs:
+#       - { key: SECRET_KEY, scope: RUN_AND_BUILD_TIME, type: SECRET }
+#       - { key: DATABASE_URL, scope: RUN_TIME, value: ${db.DATABASE_URL} }
+#       - { key: REDIS_URL, scope: RUN_TIME, value: ${redis.DATABASE_URL} }
