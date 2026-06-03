@@ -49,9 +49,14 @@ services:
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db.DATABASE_URL}
+      # App Platform's health probe hits the container directly with an internal
+      # Host header; a strict ALLOWED_HOSTS would 400 it and fail the deploy. The
+      # platform router + TLS gate real traffic, and redirect/email links use the
+      # absolute FRONTEND_URL, so '*' is acceptable here. Tighten to your domain(s)
+      # once you confirm the host the health check sends.
       - key: ALLOWED_HOSTS
         scope: RUN_TIME
-        value: ${APP_DOMAIN}
+        value: "*"
       - key: CSRF_TRUSTED_ORIGINS
         scope: RUN_TIME
         value: https://${APP_DOMAIN}
@@ -125,6 +130,11 @@ jobs:
       - key: DATABASE_URL
         scope: RUN_TIME
         value: ${db.DATABASE_URL}
+      # The image entrypoint also migrates on boot; disable it here so this
+      # job's run_command is the single migration (no double-run).
+      - key: RUN_MIGRATIONS
+        scope: RUN_TIME
+        value: "false"
 
 # Optional Celery worker for async allauth emails. Requires a Redis database
 # component (add under `databases:` as engine REDIS) and REDIS_URL on each

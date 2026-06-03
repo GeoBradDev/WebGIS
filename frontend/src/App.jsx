@@ -171,7 +171,7 @@ function App() {
                         </>
                     )}
                     {currentView === 'dashboard' && (
-                        <Dashboard data={geojsonData.features.map(f => f.properties)}/>
+                        <Dashboard data={geojsonData?.features?.map(f => f.properties) ?? []}/>
                     )}
                 </Box>
             </Box>

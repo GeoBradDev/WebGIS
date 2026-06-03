@@ -77,9 +77,14 @@ or package linkage between the three. Each has its own dependencies and tooling.
 
 ## 4. Backend internals (`backend/`)
 
-- **Single-file API.** All endpoints live in `api/api.py` as one `NinjaAPI` instance, grouped
-  by OpenAPI tags (Polygons, Points, Lines, Spatial Join, Nearest Neighbor, Geometry
-  Operations, GDAL). `WebGIS/urls.py` mounts it at `/api/` and adds a DB-free `/healthz`.
+- **Layered Django Ninja API.** `api/api.py` builds the root `NinjaAPI` and assembles per-domain
+  routers from `api/routers/` (`features` = Point/Polygon/Line CRUD + queries, `spatial` =
+  joins/nearest/geometry ops, `gdal`). Thin views call `api/services.py` (ORM + GEOS/GDAL);
+  schemas in `api/schemas.py`. Conventions: `ModelSchema` In/Out/Patch with `resolve_*`,
+  `get_object_or_404`, `(status, data)` tuples, `@paginate`d lists (`{items, count}`), GeoJSON
+  as objects (not strings), `InvalidGeometry → 422`, GDAL paths confined to
+  `settings.GDAL_FILE_ROOT`. Routes: `/api/{points,polygons,lines}/…`, `/api/spatial/…`,
+  `/api/gdal/…`; `WebGIS/urls.py` mounts `/api/` and a DB-free `/healthz`.
 - **Geospatial.** Models (`api/models.py`) use GeoDjango fields (`srid=4326`); endpoints use
   PostGIS spatial lookups and GIS DB functions, plus direct `osgeo` (GDAL/OGR) calls for the
   raster/vector endpoints. Note: `GET /api/polygons` returns bare geometry with no attributes,

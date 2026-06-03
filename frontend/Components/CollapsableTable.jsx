@@ -8,11 +8,13 @@ const CollapsibleTable = () => {
     const isTableCollapsed = useStore((state) => state.isTableCollapsed);
     const toggleTable = useStore((state) => state.toggleTable);
 
-    // Transform GeoJSON features into rows using useMemo to memoize rows calculation
+    // Transform GeoJSON features into rows using useMemo to memoize rows calculation.
+    // DataGrid requires a unique id per row; fall back to the feature id / index
+    // when the source layer doesn't expose an OBJECTID field.
     const rows = useMemo(() => {
         return (
-            geojsonData?.features?.map((feature) => ({
-                id: feature.properties.OBJECTID,
+            geojsonData?.features?.map((feature, index) => ({
+                id: feature.properties?.OBJECTID ?? feature.id ?? index,
                 ...feature.properties,
             })) || []
         );

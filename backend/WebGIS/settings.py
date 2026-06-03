@@ -349,4 +349,15 @@ else:
 # ────────────────────────────── Allauth Email Adapter ──────────────────────────────
 ACCOUNT_ADAPTER = 'api.adapters.AsyncAccountAdapter'
 
+# ────────────────────────────── Django Ninja ──────────────────────────────
+# Paginated list endpoints use limit/offset with a default page size and a hard
+# cap so clients cannot request unbounded result sets.
+NINJA_PAGINATION_CLASS = "ninja.pagination.LimitOffsetPagination"
+NINJA_PAGINATION_PER_PAGE = 50
+NINJA_PAGINATION_MAX_LIMIT = 200
+
+# The GDAL file-path endpoints are confined to this directory so they cannot
+# read/write arbitrary files on the host.
+GDAL_FILE_ROOT = MEDIA_ROOT
+
 

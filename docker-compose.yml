@@ -37,6 +37,12 @@ services:
       POSTGRES_ENGINE: django.contrib.gis.db.backends.postgis
       RUN_MIGRATIONS: "true"
     # Dev server with autoreload; the image's default CMD runs gunicorn for prod.
+    # NOTE: this service assumes DEBUG=True (the .env.example default). The
+    # ./backend bind mount below shadows the image's build-time staticfiles, so
+    # static is served by runserver's dev handler. With DEBUG=False, runserver
+    # stops serving static and whitenoise finds an empty STATIC_ROOT -> admin
+    # assets 404. For a prod-like local run, use the image's gunicorn CMD instead
+    # of this runserver override (and drop the code mount).
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
