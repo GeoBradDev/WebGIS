@@ -77,10 +77,12 @@ export const useAuthStore = create(
                         const data = await response.json();
 
                         if (response.ok) {
+                            // allauth nests the user under data.data.user; keep the
+                            // data.user fallback for safety (matches loginWithGoogle).
                             set({
-                                user: data.user,
+                                user: data.data?.user || data.user,
                                 isAuthenticated: true,
-                                sessionToken: data.meta.session_token
+                                sessionToken: data.meta?.session_token
                             });
                             return {success: true, message: "Login successful!"};
                         } else {
@@ -88,6 +90,37 @@ export const useAuthStore = create(
                         }
                     } catch (error) {
                         console.error("Login failed:", error);
+                        return {success: false, message: "Server error. Please try again later."};
+                    }
+                },
+
+                // ✅ Login with a Google id_token credential (allauth provider/token flow)
+                loginWithGoogle: async (credential) => {
+                    try {
+                        const response = await fetch(`${allAuthEndpoint}/provider/token`, {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                provider: 'google',
+                                process: 'login',
+                                token: {
+                                    client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+                                    id_token: credential,
+                                },
+                            }),
+                        });
+                        const data = await response.json();
+                        if (response.ok) {
+                            set({
+                                user: data.data?.user || data.user,
+                                isAuthenticated: true,
+                                sessionToken: data.meta?.session_token,
+                            });
+                            return {success: true, message: "Login successful!"};
+                        }
+                        return {success: false, message: data.error || "Google login failed"};
+                    } catch (error) {
+                        console.error("Google login failed:", error);
                         return {success: false, message: "Server error. Please try again later."};
                     }
                 },

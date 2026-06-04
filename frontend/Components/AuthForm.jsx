@@ -3,9 +3,10 @@ import {useForm} from "react-hook-form";
 import {TextField, Button, Box, Typography, CircularProgress} from "@mui/material";
 import {useAuthStore} from "../src/store/useAuthStore.js";
 import PropTypes from "prop-types";
+import GoogleSignInButton from "./GoogleSignInButton.jsx";
 
 
-const AuthForm = ({openForgotPassword, onLogin, onSignup}) => {
+const AuthForm = ({openForgotPassword, onLogin, onSignup, onGoogleLogin}) => {
     const [isSignup, setIsSignup] = useState(false);
     const {setAuthStage} = useAuthStore();
     const [loading, setLoading] = useState(false);
@@ -139,6 +140,7 @@ const AuthForm = ({openForgotPassword, onLogin, onSignup}) => {
                     Forgot Password?
                 </Typography>
             )}
+            <GoogleSignInButton onGoogleLogin={onGoogleLogin} />
         </Box>
     );
 };
@@ -147,6 +149,7 @@ AuthForm.propTypes = {
     openForgotPassword: PropTypes.func,
     onLogin: PropTypes.func.isRequired,
     onSignup: PropTypes.func.isRequired,
+    onGoogleLogin: PropTypes.func.isRequired,
 };
 
 export default AuthForm;

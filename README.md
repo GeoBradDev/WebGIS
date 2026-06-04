@@ -98,6 +98,31 @@ The web map uses a **PMTiles vector basemap** when `VITE_BASEMAP_PMTILES_URL` po
 blank, so the app works out of the box. In production, host the archive on DO Spaces and
 configure the bucket CORS to allow `Range` requests from your origin.
 
+## Google Sign-In (SSO)
+
+Google login is wired across all three clients via django-allauth's headless token flow; it stays
+inert until you provide OAuth client IDs. To enable it:
+
+1. In the [Google Cloud Console](https://console.cloud.google.com/), create/select a project and
+   configure the **OAuth consent screen** (External; scopes `profile`, `email`; add test users while
+   the app is unverified).
+2. Create OAuth **client IDs** under *APIs & Services → Credentials*:
+   - **Web application** — Authorized JavaScript origins: your web origins (e.g.
+     `http://localhost:5173` and your production domain).
+   - **iOS** — bundle ID `com.brad.stricherz.WebGISReactNative` (change per fork).
+   - **Android** — package name `com.brad.stricherz.WebGISReactNative` + the signing key SHA-1.
+3. Set the IDs in each `.env`:
+   - `backend/.env`: `GOOGLE_OAUTH_CLIENT_ID_WEB` (+ `GOOGLE_OAUTH_SECRET_WEB`),
+     `GOOGLE_OAUTH_CLIENT_ID_IOS`, `GOOGLE_OAUTH_CLIENT_ID_ANDROID`.
+   - `frontend/.env`: `VITE_GOOGLE_CLIENT_ID` (the web client ID).
+   - `mobile/.env`: `EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB/_IOS/_ANDROID`.
+
+The clients obtain a Google `id_token` and POST it to `/_allauth/app/v1/auth/provider/token`;
+allauth verifies the JWT signature and audience, then auto-links to an existing account with the
+same verified email. (The allauth Google provider requires `PyJWT` + `cryptography`, which are in
+`backend/requirements.txt`.) See `docs/superpowers/specs/2026-06-04-google-sso-design.md` for the
+rationale.
+
 ## Deployment (DigitalOcean App Platform)
 
 `.do/app.yaml` defines all components against this one repo (a backend service, a frontend

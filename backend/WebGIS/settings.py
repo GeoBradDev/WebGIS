@@ -101,6 +101,7 @@ INSTALLED_APPS = [
     'allauth.headless',
     'allauth.account',
     'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
 
     # Your custom apps
     'api',
@@ -139,6 +140,36 @@ HEADLESS_FRONTEND_URLS = {
     "account_reset_password_from_key": f"{FRONTEND_URL}/reset-password/key/{{key}}",
     "account_signup": f"{FRONTEND_URL}",
 }
+
+# -- Social auth (Google) -----------------------------------------------------
+# Client IDs come from env; the provider is inert until at least one is set.
+# Native (iOS/Android) clients are public, so they carry no secret. The headless
+# app `provider/token` endpoint selects the matching app by the client_id the
+# client sends, then verifies the Google id_token's JWT signature and audience.
+_GOOGLE_APPS = []
+if os.getenv('GOOGLE_OAUTH_CLIENT_ID_WEB'):
+    _GOOGLE_APPS.append({
+        'client_id': os.getenv('GOOGLE_OAUTH_CLIENT_ID_WEB'),
+        'secret': os.getenv('GOOGLE_OAUTH_SECRET_WEB', ''),
+        'key': '',
+    })
+if os.getenv('GOOGLE_OAUTH_CLIENT_ID_IOS'):
+    _GOOGLE_APPS.append({'client_id': os.getenv('GOOGLE_OAUTH_CLIENT_ID_IOS'), 'secret': '', 'key': ''})
+if os.getenv('GOOGLE_OAUTH_CLIENT_ID_ANDROID'):
+    _GOOGLE_APPS.append({'client_id': os.getenv('GOOGLE_OAUTH_CLIENT_ID_ANDROID'), 'secret': '', 'key': ''})
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'APPS': _GOOGLE_APPS,
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+    },
+}
+
+# Auto-link a Google login to an existing account with the same verified email
+# (Google emails are pre-verified), so users keep a single account.
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
 
 ROOT_URLCONF = 'WebGIS.urls'
 

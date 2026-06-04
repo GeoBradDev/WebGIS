@@ -34,7 +34,7 @@ function App() {
     // User Auth State
     const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
     const logout = useAuthStore((state) => state.logout);
-    const {login, signup, authStage, setAuthStage} = useAuthStore();
+    const {login, signup, authStage, setAuthStage, loginWithGoogle} = useAuthStore();
 
     // Modals State
     const [aboutOpen, setAboutOpen] = useState(false);
@@ -77,6 +77,19 @@ function App() {
                 ? response.errors[0].message
                 : `${SNACKBAR_MESSAGES.LOGOUT_FAILURE}${response.message ? `: ${response.message}` : ''}`;
             showSnackbar(errorMessage, SNACKBAR_SEVERITIES.ERROR);
+        }
+    };
+
+    const handleGoogleLogin = async (credential) => {
+        const response = await loginWithGoogle(credential);
+        if (response.success) {
+            showSnackbar(SNACKBAR_MESSAGES.LOGIN_SUCCESS, SNACKBAR_SEVERITIES.SUCCESS);
+            setAuthOpen(false);
+        } else {
+            showSnackbar(
+                response.message || SNACKBAR_MESSAGES.LOGIN_FAILURE,
+                SNACKBAR_SEVERITIES.ERROR,
+            );
         }
     };
 
@@ -198,6 +211,7 @@ function App() {
                         }}
                         onLogin={handleLogin}
                         onSignup={handleSignup}
+                        onGoogleLogin={handleGoogleLogin}
                     />
                 </DialogContent>
                 <DialogActions>

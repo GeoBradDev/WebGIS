@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { useAuthStore } from '@/store/useAuthStore';
+import GoogleSignInButton from './GoogleSignInButton';
 
 export default function AuthForm() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -47,6 +48,7 @@ export default function AuthForm() {
           {mode === 'login' ? 'Need an account? Sign up' : 'Have an account? Sign in'}
         </Text>
       </TouchableOpacity>
+      <GoogleSignInButton />
     </View>
   );
 }

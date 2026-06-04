@@ -9,6 +9,7 @@ and service patterns the template uses, so a forker can copy them.
 import json
 
 import pytest
+from django.test import override_settings
 from ninja.errors import HttpError
 
 from api import services
@@ -215,3 +216,24 @@ def test_safe_path_rejects_traversal():
     # The GDAL file-path guard must reject paths escaping GDAL_FILE_ROOT.
     with pytest.raises(HttpError):
         services._safe_path("../../etc/passwd", must_exist=False)
+
+
+@override_settings(
+    SOCIALACCOUNT_PROVIDERS={
+        'google': {'APPS': [{'client_id': 'dummy.apps.googleusercontent.com', 'secret': '', 'key': ''}]}
+    }
+)
+def test_google_provider_token_endpoint_is_wired(client):
+    # The headless provider/token route must exist and validate input. A token
+    # object with no access_token/id_token is rejected before any Google network
+    # call, so this is deterministic and offline.
+    resp = client.post(
+        '/_allauth/app/v1/auth/provider/token',
+        data=json.dumps({
+            'provider': 'google',
+            'process': 'login',
+            'token': {'client_id': 'dummy.apps.googleusercontent.com'},
+        }),
+        content_type='application/json',
+    )
+    assert 400 <= resp.status_code < 500

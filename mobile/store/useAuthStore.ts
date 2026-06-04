@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { Platform } from 'react-native';
 import { ALLAUTH_ENDPOINT } from '../config/api';
 import { secureStorage } from './secureStorage';
 
@@ -10,6 +11,7 @@ interface AuthState {
   isAuthenticated: boolean;
   sessionToken: string | null;
   login: (email: string, password: string) => Promise<AuthResult>;
+  loginWithGoogle: (idToken: string) => Promise<AuthResult>;
   signup: (data: {
     email: string;
     password: string;
@@ -40,6 +42,39 @@ export const useAuthStore = create<AuthState>()(
             return { success: true, message: 'Login successful!' };
           }
           return { success: false, message: data.error || 'Invalid credentials' };
+        } catch {
+          return { success: false, message: 'Server error. Please try again later.' };
+        }
+      },
+
+      loginWithGoogle: async (idToken) => {
+        // allauth validates the id_token's `aud` against the configured client
+        // IDs, so send the platform's client id (the one the token was minted
+        // for). All three are registered in the backend's google APPS.
+        const clientId =
+          Platform.select({
+            ios: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_IOS,
+            android: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_ANDROID,
+            default: process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB,
+          }) ??
+          process.env.EXPO_PUBLIC_GOOGLE_CLIENT_ID_WEB ??
+          '';
+        try {
+          const res = await fetch(`${ALLAUTH_ENDPOINT}/provider/token`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: 'google',
+              process: 'login',
+              token: { client_id: clientId, id_token: idToken },
+            }),
+          });
+          const data = await res.json();
+          if (res.ok) {
+            set({ user: data.data?.user ?? data.user, isAuthenticated: true, sessionToken: data.meta?.session_token });
+            return { success: true, message: 'Login successful!' };
+          }
+          return { success: false, message: data.error || 'Google login failed' };
         } catch {
           return { success: false, message: 'Server error. Please try again later.' };
         }
