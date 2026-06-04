@@ -24,11 +24,20 @@ Unlike the web client (`frontend/`, plain JavaScript), this client is
 npm install
 npm start            # Expo dev server (or: npm run android / ios / web)
 npm test             # jest-expo
+npm run type-check   # tsc --noEmit
 ```
 
-Requires a `GOOGLE_MAPS_API_KEY` in a `.env` file (consumed by `app.config.js`).
+Copy `.env.example` to `.env` and set `EXPO_PUBLIC_API_URL`. On a **physical
+device** this must be your dev machine's LAN IP (e.g. `http://192.168.1.50:8000/api`),
+not `localhost`. Also set `GOOGLE_MAPS_API_KEY` (consumed by `app.config.js`).
+
 Run the app on a device with **Expo Go** or in an emulator. The mobile client is
 **not** deployed to App Platform; it ships via EAS / the app stores.
+
+The client has feature parity with the web client: config-driven layers, location
+search, layer toggles, attribute filters, a feature list, a dashboard, and
+login/signup auth. The PMTiles vector basemap remains the documented roadmap gap
+(mobile uses OSM raster tiles via `react-native-maps`).
 
 ## Project structure
 
