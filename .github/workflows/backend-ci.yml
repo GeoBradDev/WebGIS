@@ -19,8 +19,24 @@ jobs:
   build-and-check:
     runs-on: ubuntu-latest
     env:
-      # Throwaway values; checks/tests here do not touch a database.
+      # Throwaway values for the no-DB steps (system check, migration check).
+      # The test step adds the database env separately (tests need PostGIS).
       DOCKER_RUN: docker run --rm -e SECRET_KEY=ci-not-secret -e DEBUG=True -e RUN_MIGRATIONS=false
+    services:
+      # PostGIS for the test suite; Django builds an isolated test DB from it.
+      db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_DB: webgisdb
+          POSTGRES_USER: webgis
+          POSTGRES_PASSWORD: webgis
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U webgis -d webgisdb"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -34,11 +50,12 @@ jobs:
         run: $DOCKER_RUN --entrypoint python webgis-backend manage.py makemigrations --check --dry-run
 
       - name: Run tests
+        # Tests need PostGIS. Run inside the built image on the host network so it
+        # reaches the `db` service container via localhost:5432.
         run: |
-          set +e
-          $DOCKER_RUN --entrypoint pytest webgis-backend -q
-          code=$?
-          set -e
-          # pytest exit 5 == "no tests collected"; treat as pass until tests exist.
-          if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then exit "$code"; fi
-          echo "pytest exit $code"
+          docker run --rm --network host \
+            -e SECRET_KEY=ci-not-secret -e DEBUG=True -e RUN_MIGRATIONS=false \
+            -e POSTGRES_ENGINE=django.contrib.gis.db.backends.postgis \
+            -e POSTGRES_DB=webgisdb -e POSTGRES_USER=webgis -e POSTGRES_PASSWORD=webgis \
+            -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 \
+            --entrypoint pytest webgis-backend -q

@@ -13,7 +13,6 @@ import {
 } from '@mui/material';
 import Sidebar from '../Components/Sidebar.jsx';
 import MapView from '../Components/Mapview.jsx';
-import CollapsibleTable from "../Components/CollapsableTable.jsx";
 import AuthForm from "../Components/AuthForm.jsx";
 import ForgotPasswordForm from "../Components/ForgotPasswordForm.jsx";
 import Dashboard from '../Components/Dashboard.jsx';
@@ -164,12 +163,8 @@ function App() {
                     position: 'relative',
                     overflow: 'auto'
                 }}>
-                    {currentView === 'map' && (
-                        <>
-                            <MapView/>
-                            <CollapsibleTable/>
-                        </>
-                    )}
+                    {/* MapView renders its own CollapsibleTable overlay once data loads. */}
+                    {currentView === 'map' && <MapView/>}
                     {currentView === 'dashboard' && (
                         <Dashboard data={geojsonData?.features?.map(f => f.properties) ?? []}/>
                     )}
