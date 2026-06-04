@@ -18,9 +18,9 @@ package linkage between the three (each has its own dependencies and tooling). A
 builds each component from its `source_dir` within the one repo. See `ARCHITECTURE.md` for the
 full design. The goal is a forkable, boilerplate WebGIS **template**.
 
-Note: `backend/.github/` and `frontend/.github/` workflows are inert in a monorepo (GitHub only
-runs root `.github/workflows/`), and a stray root `pyproject.toml` (`requires-python >=3.14`,
-empty deps) does not represent this project — see ARCHITECTURE.md §9.
+Note: CI runs only from root `.github/workflows/` (`backend-ci.yml`, `frontend-ci.yml`); the former
+stray `backend/.github/`, `frontend/.github/`, and root `pyproject.toml` no longer exist. See
+ARCHITECTURE.md §9 for current known issues.
 
 ## Commands
 
@@ -33,13 +33,13 @@ empty deps) does not represent this project — see ARCHITECTURE.md §9.
 ### backend/ (without containers: `source .venv/bin/activate`)
 - Dev server (ASGI): `python manage.py runserver` (API at `/api`, admin at `/admin`, allauth headless at `/_allauth/`, health at `/healthz`).
 - Migrations: `python manage.py makemigrations` then `python manage.py migrate`.
-- Tests: `pytest` (configured runner; `api/tests.py` uses Django `TestCase`).
+- Tests: `pytest` (via `pytest-django` + `pytest.ini`; needs a PostGIS database, from which Django builds an isolated test DB). `api/tests.py` covers feature CRUD, spatial queries, geometry validation, and the GDAL path guard.
 - Celery worker (only when `REDIS_URL` is set): `celery -A WebGIS worker -l info`.
 
 ### frontend/ (run from `frontend/`)
 - Dev: `npm run dev` (Vite, `http://localhost:5173`). Build / preview: `npm run build` / `npm run preview`.
 - Lint: `npm run lint` (ESLint flat config).
-- Note: `package.json` declares `test` (`jest`) and `type-check` (`tsc`) scripts, but this project has **no** Jest config or TypeScript — it is plain JS/JSX. Those scripts are non-functional; use `npm run lint` for static checks.
+- Note: the project is plain JS/JSX with no Jest or TypeScript; the formerly non-functional `test`/`type-check`/`prettier` npm scripts were removed. Use `npm run lint` for static checks and `npm run build` to catch import/syntax errors.
 
 ### mobile/ (run from `mobile/`)
 - Dev: `npm start` (Expo). Targets: `npm run android`, `npm run ios`, `npm run web`. Tests: `npm test` (`jest-expo`).
@@ -52,8 +52,8 @@ empty deps) does not represent this project — see ARCHITECTURE.md §9.
 
 - **API layering (Django Ninja).** `backend/api/api.py` only builds the root `NinjaAPI` instance (`api`) and assembles per-domain routers from `api/routers/` (`features.py` = Point/Polygon/Line CRUD + queries; `spatial.py` = joins, nearest, geometry ops; `gdal.py`). Views stay thin and call `api/services.py` (ORM + GEOS/GDAL logic); request/response models live in `api/schemas.py`. `WebGIS/urls.py` mounts `api` at `api/` plus a DB-free `/healthz`. To add an endpoint: route in the relevant `routers/*.py` → logic in `services.py` → schemas in `schemas.py`. Routing: `/api/points|polygons|lines/...`, `/api/spatial/...`, `/api/gdal/...`.
 - **Conventions:** In/Out/Patch schemas via `ModelSchema` + `resolve_*`; `get_object_or_404` for 404s; `(status, data)` tuples with declared `response={code: Schema}`; list endpoints are `@paginate`d (LimitOffset, `{items, count}`); geometries are exchanged as real **GeoJSON objects** (not strings); a bad geometry raises `services.InvalidGeometry` → 422 via an exception handler; GDAL file-path endpoints are confined to `settings.GDAL_FILE_ROOT` (`services._safe_path`).
-- **Geospatial stack.** Models (`api/models.py`) use GeoDjango fields (`PointField`, `PolygonField`, `LineStringField`, all `srid=4326`). Endpoints use PostGIS spatial lookups (`geom__intersects`, `geom__within`, `geom__distance_lte`) and GIS DB functions (`Distance`, etc.); the GDAL endpoints call `osgeo` directly. **Note:** the demo models only carry `name` + geometry, so `GET /api/polygons` has no rich attributes and is not a drop-in source for the attribute-rich web overlay (see web architecture).
-- **PostGIS extension.** Migration `api/0002` runs `CreateExtension('postgis')` before any geometry column, so a fresh DB (e.g. DO Managed Postgres, where PostGIS is available but not enabled) migrates cleanly. The local `postgis/postgis` image already has it.
+- **Geospatial stack.** Models (`api/models.py`) use GeoDjango fields (`PointField`, `PolygonField`, `LineStringField`, all `srid=4326`). Endpoints use PostGIS spatial lookups (`geom__intersects`, `geom__within`, `geom__distance_lte`) and GIS DB functions (`Distance`, etc.); the GDAL endpoints call `osgeo` directly. **Note:** the demo models carry only `name`, `description`, geometry, and `created_at` (the latter two added in `api/0005` as an "extend the model" example), so `GET /api/polygons` still has no domain-rich attributes and is not a drop-in source for the attribute-rich web overlay (see web architecture).
+- **PostGIS extension.** Migration `api/0004_enable_postgis` runs `CreateExtension('postgis')` with `run_before` set ahead of `api/0002` (the first geometry columns), so a fresh DB (e.g. DO Managed Postgres, where PostGIS is available but not enabled) migrates cleanly. The local `postgis/postgis` image already has it.
 - **Custom user model.** `api.CustomUser` (via `AUTH_USER_MODEL`) authenticates by **email** (`USERNAME_FIELD = 'email'`), stored lowercased; a custom manager does case-insensitive lookup.
 - **Auth is django-allauth headless.** `HEADLESS_ONLY = True`; clients hit `/_allauth/app/v1/auth/...` with an `X-Session-Token`. Email verification is mandatory; verification/reset links are built from `FRONTEND_URL` in `HEADLESS_FRONTEND_URLS`. No DRF, no custom token app.
 - **Async email / Celery is optional.** `ACCOUNT_ADAPTER = api.adapters.AsyncAccountAdapter` dispatches allauth emails via the `send_email_async` Celery task. Celery is enabled only when `REDIS_URL` is set; otherwise `CELERY_TASK_ALWAYS_EAGER` runs tasks inline.
@@ -61,11 +61,11 @@ empty deps) does not represent this project — see ARCHITECTURE.md §9.
 
 ## frontend/ architecture
 
-- **Components live in `frontend/Components/` (capital C), a sibling of `src/`, not inside it.** `src/` holds the entry (`main.jsx`), shell (`App.jsx`), routes (`AppRoutes.jsx`), the Zustand stores, and `mapStyle.js`. Imports cross this boundary (e.g. `App.jsx` imports `../Components/Sidebar.jsx`).
+- **Components live in `frontend/Components/` (capital C), a sibling of `src/`, not inside it.** `src/` holds the entry (`main.jsx`), shell (`App.jsx`), routes (`AppRoutes.jsx`), the Zustand stores, `mapStyle.js`, and `layers.js` (the layer registry). Imports cross this boundary (e.g. `App.jsx` imports `../Components/Sidebar.jsx`).
 - **Map: MapLibre GL JS via `react-map-gl/maplibre`** (not Leaflet). `Components/Mapview.jsx` registers the `pmtiles://` protocol once at module scope, then renders `<Map>` with `<Source>/<Layer>` children. `src/mapStyle.js` builds the style from env: a **PMTiles vector basemap** (Protomaps schema via `protomaps-themes-base`) when `VITE_BASEMAP_PMTILES_URL` is set, otherwise raster OpenStreetMap so the map works out of the box. `BASEMAPS`/`DEFAULT_BASEMAP_ID` drive the in-map basemap switcher (`activeBasemap` in the store). **Axis order:** the store keeps Leaflet-style `[lat, lng]`; convert to maplibre `[lng, lat]` only at the map boundary inside `Mapview.jsx`.
-- **Split data model.** The attribute-rich St. Louis municipalities overlay is GeoJSON fetched from `VITE_MUNI_GEOJSON_URL` (defaults to a demo ArcGIS FeatureServer), filtered client-side and rendered as a `geojson` source. PMTiles is for the basemap (and optional vector overlays). The attribute table (`CollapsableTable.jsx`) reads the same GeoJSON from the store and is renderer-agnostic.
+- **Config-driven layer registry.** `src/layers.js` (`LAYER_CONFIGS`) is the single source of layer definitions: each entry has a `source` (`{kind:'geojson-url', url}` or `{kind:'backend', endpoint}`), a `style`, and (on the one `primary: true` layer) the field metadata — `columns`, `categoricalFilters`, `rangeFilter`, `dashboard`, `popup` — that drives the table, sidebar filters, dashboard, and map popups. Add/swap a layer by editing this file, not the components. Ships two examples: the St. Louis municipalities overlay (`geojson-url`, primary, from `VITE_MUNI_GEOJSON_URL`) and a `Demo Polygons (backend API)` layer (`kind:'backend'`, `GET /api/polygons`) — the reference pattern for consuming the template's own backend. PMTiles remains the basemap layer.
 - **Two Zustand stores:**
-  - `src/store/useStore.js` — map/UI state: center, `currentView` (`map`/`dashboard`), table collapse, snackbar, `activeBasemap`, and all GeoJSON data + filtering (`getFilteredGeoJSONData`, `getUniqueMunicipalities`).
+  - `src/store/useStore.js` — map/UI state plus the layer registry: center, `currentView` (`map`/`dashboard`), table collapse, snackbar, `activeBasemap`, the `layers` map, generic fetching (`fetchLayers`, supporting both source kinds), and primary-layer filtering (`getFilteredPrimaryData`, `getUniqueValues`, `setCategoricalFilter`, `setRange`).
   - `src/store/useAuthStore.js` — auth, **persisted to `localStorage`** (key `auth-storage`). The allauth base is derived from `VITE_API_URL` (strip `/api`), not hardcoded.
 - **Routing.** `react-router-dom` v7: `/`, `/verify-email/:key`, `/reset-password/key/:key` (the latter two match the backend's `HEADLESS_FRONTEND_URLS`).
 - **UI stack.** Material UI v7 (`@mui/material`, `@mui/x-data-grid`), Recharts for the dashboard. Snackbar constants in `constants/snackbarMessages.js`.

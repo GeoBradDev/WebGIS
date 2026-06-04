@@ -1,176 +1,94 @@
-# WebGIS-Django 🛰️
+# WebGIS Template — Backend (Django + Django Ninja + PostGIS)
 
-A backend starter template for building full-stack WebGIS applications using **Django**, **Django Ninja**, and **Django Allauth**. Designed to work seamlessly with a companion [React frontend](https://github.com/GeoBradDev/WebGIS-React), this project provides a fully integrated geospatial platform for modern web development.
+The Django REST API for the WebGIS template: a type-safe Django Ninja API over
+GeoDjango/PostGIS, with headless django-allauth authentication and optional
+Celery. It is one component of a single monorepo (see the repository root
+`README.md` and `ARCHITECTURE.md`); the recommended way to run everything is
+`docker compose up --build` from the repo root.
 
----
+## Tech stack
 
-## ⚡ Quick Start
+- **Django 5.2** + **Django Ninja** (Pydantic-based, type-safe API; no DRF)
+- **GeoDjango + PostGIS** for spatial models and queries
+- **django-allauth (headless)** — email-based auth via `/_allauth/app/v1/...`
+- **GDAL/OGR** for raster/vector utilities
+- **Celery** (optional; enabled when `REDIS_URL` is set, otherwise tasks run eagerly)
+- **gunicorn + uvicorn worker** in production, **whitenoise** for static files
 
-Use the included [`bootstrap.sh`](scripts/bootstrap.sh) script to set up the entire development stack in minutes.
+## Run it
 
-### 🛠 Prerequisites
+With containers (recommended), from the repo root: `docker compose up --build`.
 
-Ensure you have the following software installed:
-
-- PostgreSQL + PostGIS (v14+)
-- Python 3.10+
-- Node.js and npm
-- Git
-- sudo privileges
-
----
-
-## 🚀 Bootstrap Setup (Recommended)
-
-Run the following command in your terminal:
+Without containers (needs Python 3.12+, PostgreSQL + PostGIS, and system
+GDAL/GEOS/PROJ):
 
 ```bash
-bash <(curl -O https://raw.githubusercontent.com/GeoBradDev/WebGIS-Django/main/scripts/bootstrap.sh)
-````
-
-This script performs the following:
-
-* ✅ Verifies required tools are installed
-* ✅ Installs system packages (PostgreSQL, PostGIS, Python build tools)
-* ✅ Configures PostgreSQL and creates PostGIS-enabled database
-* ✅ Clones both frontend and backend repositories
-* ✅ Sets up Python virtual environment
-* ✅ Installs backend Python dependencies
-* ✅ Creates `.env` for Django environment variables
-* ✅ Runs migrations and creates a Django superuser
-* ✅ Installs frontend Node dependencies
-* ✅ Generates `render.yaml` for cloud deployment via [Render](https://render.com)
-
----
-
-## 🧰 Tech Stack
-
-### Backend
-
-* **Django 5.2** – High-level Python web framework
-* **Django Ninja** – Fast API framework built on Pydantic
-* **Django Allauth** – User authentication and registration (headless)
-* **PostGIS** – Spatial database extensions for PostgreSQL
-* **Uvicorn** – ASGI development server
-* **Gunicorn** – Production WSGI server
-* **Whitenoise** – Static file serving for production environments
-
-### Frontend (in companion repo)
-
-* **React** + **Vite**
-* RESTful API integration using token-based auth
-
-👉 [GeoBradDev/WebGIS-React](https://github.com/GeoBradDev/WebGIS-React)
-
----
-
-## 📦 Python Dependencies
-
-Some key packages included:
-
-| Package               | Purpose                                      |
-| --------------------- | -------------------------------------------- |
-| `django-ninja`        | Fast and type-safe API framework             |
-| `django-allauth`      | User authentication and registration         |
-| `dj-database-url`     | Easy DB configuration using URL strings      |
-| `psycopg2-binary`     | PostgreSQL/PostGIS database driver           |
-| `python-dotenv`       | Manage environment variables via `.env` file |
-| `gunicorn`, `uvicorn` | Web server deployment                        |
-| `whitenoise`          | Static file handling                         |
-| `nltk`, `numpy`       | Optional natural language + numeric tooling  |
-
-View `requirements.txt` for the complete list.
-
----
-
-## 🔐 Default Admin Access
-
-Once setup completes, the Django superuser account is:
-
-```
-Username: admin
-Password: adminpass
-Email: admin@example.com
-URL: http://localhost:8000/admin
+cd backend
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env          # set SECRET_KEY + POSTGRES_* (or DATABASE_URL)
+python manage.py migrate
+python manage.py runserver    # http://localhost:8000
 ```
 
-> You can change these credentials in the `bootstrap.sh` configuration section.
+`scripts/bootstrap.sh` automates a host (non-container) Postgres/PostGIS + venv
+setup; its credentials are environment-overridable (see the script header).
 
----
+## API layout
 
-## 🌍 Deployment via Render
+- API root: `/api` (interactive docs at `/api/docs`), admin at `/admin`,
+  allauth headless at `/_allauth/`, DB-free health check at `/healthz`.
+- Routers live in `api/routers/`:
+  - `features.py` — Point / Polygon / Line CRUD + simple queries (`/api/points`, `/api/polygons`, `/api/lines`)
+  - `spatial.py` — spatial joins, nearest-neighbor, intersection/difference/union/buffer (`/api/spatial/...`)
+  - `gdal.py` — GDAL/OGR raster + vector utilities (`/api/gdal/...`)
+- Thin views call `api/services.py` (ORM + GEOS/GDAL logic); request/response
+  shapes are in `api/schemas.py`. Geometries are exchanged as real **GeoJSON
+  objects**. A bad geometry raises `services.InvalidGeometry` → HTTP 422.
+- To add an endpoint: route in the relevant `routers/*.py` → logic in
+  `services.py` → schemas in `schemas.py`. The demo models (`api/models.py`)
+  carry a `name`, `description`, `geom`, and `created_at` to show how to extend a
+  GeoDjango model (add a field → `makemigrations`/`migrate` → expose in schemas).
 
-The setup script generates a `render.yaml` with preconfigured services for:
+## Security note: GDAL endpoints
 
-* Frontend (React/Vite, static site)
-* Backend (Django/PostGIS, auto migrations)
-* Optional cron job for automated tasks
-* Database (PostgreSQL + PostGIS)
+The `/api/gdal/*` endpoints parse raster/vector files with GDAL/OGR. The GDAL
+version installed by the Docker base distro (3.6.2) has known advisories fixed
+only in much newer GDAL releases. File paths are confined to
+`settings.GDAL_FILE_ROOT`, but you should still treat any file these endpoints
+touch as **trusted** input. If you expose them to untrusted users, sandbox GDAL
+or disable the router (drop the `add_router("/gdal", ...)` line in `api/api.py`).
 
-### To deploy:
-
-1. Push frontend/backend repos to your GitHub
-2. Update the `render.yaml` URLs
-3. Connect to [Render](https://render.com) and import your repo
-
----
-
-## 🧪 Running Tests
-
-To run backend tests using `pytest`:
+## Tests
 
 ```bash
 pytest
 ```
 
----
+Requires a PostGIS-capable database (the same one the app uses); Django builds an
+isolated `test_<db>` from it. `api/tests.py` covers the feature CRUD, spatial
+queries, geometry validation, and the GDAL path guard.
 
-## 🛠 Development Tips
-
-### Activate virtual environment
-
-```bash
-source .venv/bin/activate
-```
-
-### Run Django development server
-
-```bash
-cd WebGIS-Django
-python manage.py runserver
-```
-
-### Start React frontend
-
-```bash
-cd frontend
-npm run dev
-```
-
----
-
-## 📁 Project Structure
+## Project structure
 
 ```
-WebGIS-Django/
-├── api/               # Django Ninja API routes
-├── core/              # Django settings and URLs
-├── templates/         # Template files (email, admin overrides)
-├── static/            # Static files (optional)
-├── media/             # Uploaded media (optional)
-├── .env               # Environment variables (auto-generated)
-├── render.yaml        # Deployment config for Render.com
-└── manage.py          # Django management tool
+backend/
+├── api/
+│   ├── models.py          # GeoDjango models + CustomUser (email login)
+│   ├── services.py        # ORM + GEOS/GDAL logic (InvalidGeometry, _safe_path)
+│   ├── schemas.py         # Ninja In/Out/Patch schemas
+│   ├── api.py             # NinjaAPI root; mounts routers
+│   ├── routers/           # features.py, spatial.py, gdal.py
+│   ├── adapters.py        # async allauth email adapter
+│   ├── tasks.py           # Celery tasks
+│   └── migrations/
+├── WebGIS/                # settings.py, urls.py, asgi.py, wsgi.py, celery.py
+├── scripts/bootstrap.sh   # host (non-container) setup helper
+├── Dockerfile, entrypoint.sh
+├── requirements.txt, pytest.ini
+└── manage.py
 ```
 
----
+## License
 
-## 🧭 Related Projects
-
-* [GeoBradDev/WebGIS-React](https://github.com/GeoBradDev/WebGIS-React) – Companion frontend repo
-
----
-
-## 📄 License
-
-MIT © [GeoBrad.dev](https://geobrad.dev)
+MIT.

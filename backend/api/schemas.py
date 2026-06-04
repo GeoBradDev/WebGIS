@@ -29,12 +29,14 @@ class Message(Schema):
 # --------------------------------------------------------------------------- #
 class PointIn(Schema):
     name: str = Field(..., max_length=255)
+    description: str = Field("", max_length=500)
     lng: float = Field(..., ge=-180, le=180, description="Longitude (WGS84)")
     lat: float = Field(..., ge=-90, le=90, description="Latitude (WGS84)")
 
 
 class PointPatch(Schema):
     name: Optional[str] = Field(None, max_length=255)
+    description: Optional[str] = Field(None, max_length=500)
     lng: Optional[float] = Field(None, ge=-180, le=180)
     lat: Optional[float] = Field(None, ge=-90, le=90)
 
@@ -45,7 +47,7 @@ class PointOut(ModelSchema):
 
     class Meta:
         model = DemoPoint
-        fields = ["id", "name"]
+        fields = ["id", "name", "description", "created_at"]
 
     @staticmethod
     def resolve_lng(obj) -> float:
@@ -61,16 +63,19 @@ class PointOut(ModelSchema):
 # --------------------------------------------------------------------------- #
 class PolygonIn(Schema):
     name: str = Field(..., max_length=255)
+    description: str = Field("", max_length=500)
     geojson: GeoJSON = Field(..., description="GeoJSON Polygon geometry")
 
 
 class LineIn(Schema):
     name: str = Field(..., max_length=255)
+    description: str = Field("", max_length=500)
     geojson: GeoJSON = Field(..., description="GeoJSON LineString geometry")
 
 
 class GeometryPatch(Schema):
     name: Optional[str] = Field(None, max_length=255)
+    description: Optional[str] = Field(None, max_length=500)
     geojson: Optional[GeoJSON] = None
 
 
@@ -79,7 +84,7 @@ class PolygonOut(ModelSchema):
 
     class Meta:
         model = DemoPolygon
-        fields = ["id", "name"]
+        fields = ["id", "name", "description", "created_at"]
 
     @staticmethod
     def resolve_geojson(obj) -> GeoJSON:
@@ -91,7 +96,7 @@ class LineOut(ModelSchema):
 
     class Meta:
         model = DemoLine
-        fields = ["id", "name"]
+        fields = ["id", "name", "description", "created_at"]
 
     @staticmethod
     def resolve_geojson(obj) -> GeoJSON:

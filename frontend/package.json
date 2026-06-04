@@ -8,9 +8,6 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "type-check": "tsc --noEmit",
-    "test": "jest",
-    "prettier": "prettier .",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -9,6 +9,7 @@ import Map, {
 } from 'react-map-gl/maplibre';
 import maplibregl from 'maplibre-gl';
 import { Protocol } from 'pmtiles';
+import PropTypes from 'prop-types';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import '../src/App.css';
 import { Box, IconButton, ToggleButtonGroup, ToggleButton } from '@mui/material';
@@ -16,6 +17,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import useStore from '../src/store/useStore';
 import { buildMapStyle, BASEMAPS } from '../src/mapStyle';
+import { PRIMARY_LAYER, LAYER_CONFIGS, formatPopupValue } from '../src/layers';
 import CollapsibleTable from './CollapsableTable.jsx';
 
 // Register the pmtiles:// protocol once, at module load. Doing this at module
@@ -26,7 +28,34 @@ maplibregl.addProtocol('pmtiles', protocol.tile);
 
 // maplibre-gl works in [lng, lat]; the store keeps the Leaflet [lat, lng]
 // convention, so we convert only here at the map boundary.
-const MUNI_FILL_LAYER = 'muni-fill';
+
+// Per-layer fill/line ids follow this convention so click handling can map a
+// clicked feature back to its layer config.
+const fillLayerId = (layerId) => `${layerId}-fill`;
+
+// Render one registry layer (a line outline + a clickable fill) from its style.
+function LayerSource({ layer, data }) {
+    const { style } = layer;
+    return (
+        <Source id={layer.id} type="geojson" data={data}>
+            <Layer
+                id={`${layer.id}-line`}
+                type="line"
+                paint={{ 'line-color': style.lineColor, 'line-width': style.lineWidth ?? 2 }}
+            />
+            <Layer
+                id={fillLayerId(layer.id)}
+                type="fill"
+                paint={{ 'fill-color': style.fillColor, 'fill-opacity': style.fillOpacity ?? 0.1 }}
+            />
+        </Source>
+    );
+}
+
+LayerSource.propTypes = {
+    layer: PropTypes.object.isRequired,
+    data: PropTypes.object,
+};
 
 function MapUpdater() {
     const { current: map } = useMap();
@@ -162,45 +191,47 @@ function MapView() {
     const mapCenter = useStore((state) => state.mapCenter);
     const userLocation = useStore((state) => state.userLocation);
     const isDataLoaded = useStore((state) => state.isDataLoaded);
-    const fetchGeoJSONData = useStore((state) => state.fetchGeoJSONData);
+    const fetchLayers = useStore((state) => state.fetchLayers);
     const layers = useStore((state) => state.layers);
-    const getFilteredGeoJSONData = useStore((state) => state.getFilteredGeoJSONData);
+    const getFilteredPrimaryData = useStore((state) => state.getFilteredPrimaryData);
     const geojsonData = useStore((state) => state.geojsonData);
     const filters = useStore((state) => state.filters);
     const activeBasemap = useStore((state) => state.activeBasemap);
 
     const [popupInfo, setPopupInfo] = useState(null);
 
-    // Fetch GeoJSON data on mount.
+    // Fetch every configured layer's data on mount.
     useEffect(() => {
-        fetchGeoJSONData();
-    }, [fetchGeoJSONData]);
+        fetchLayers();
+    }, [fetchLayers]);
 
     // Rebuild the style only when the chosen basemap changes.
     const mapStyle = useMemo(() => buildMapStyle(activeBasemap), [activeBasemap]);
 
-    const muniLayer = layers['st-louis-municipalities'];
-    const muniVisible = muniLayer?.visible && muniLayer?.data;
-
-    // Recompute the filtered FeatureCollection when data or filters change.
+    // Primary layer gets client-side filtering; recompute on data/filter change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    const filteredData = useMemo(() => getFilteredGeoJSONData(), [geojsonData, filters]);
+    const filteredPrimary = useMemo(() => getFilteredPrimaryData(), [geojsonData, filters]);
+
+    // Every visible layer that has data; the primary layer renders filtered.
+    const visibleLayers = Object.values(layers).filter((l) => l.visible && l.data);
+    const dataForLayer = (layer) =>
+        layer.id === PRIMARY_LAYER.id ? filteredPrimary : layer.data;
+    const interactiveLayerIds = visibleLayers.map((l) => fillLayerId(l.id));
 
     const handleMapClick = (event) => {
-        if (!muniVisible) {
+        const feature = event.features?.[0];
+        if (!feature) {
             setPopupInfo(null);
             return;
         }
-        const feature = event.features?.[0];
-        if (feature) {
-            setPopupInfo({
-                longitude: event.lngLat.lng,
-                latitude: event.lngLat.lat,
-                properties: feature.properties,
-            });
-        } else {
-            setPopupInfo(null);
-        }
+        const layerId = feature.layer?.id?.replace(/-fill$/, '');
+        const config = LAYER_CONFIGS.find((c) => c.id === layerId);
+        setPopupInfo({
+            longitude: event.lngLat.lng,
+            latitude: event.lngLat.lat,
+            properties: feature.properties,
+            config,
+        });
     };
 
     return (
@@ -213,7 +244,7 @@ function MapView() {
                 }}
                 mapStyle={mapStyle}
                 style={{ width: '100%', height: '100%' }}
-                interactiveLayerIds={muniVisible ? [MUNI_FILL_LAYER] : []}
+                interactiveLayerIds={interactiveLayerIds}
                 onClick={handleMapClick}
             >
                 <NavigationControl position="top-left" showCompass={false} />
@@ -228,23 +259,12 @@ function MapView() {
                     </Marker>
                 )}
 
-                {/* Attribute-rich municipalities overlay (filtered client-side). */}
-                {muniVisible && (
-                    <Source id="municipalities" type="geojson" data={filteredData}>
-                        <Layer
-                            id="muni-line"
-                            type="line"
-                            paint={{ 'line-color': '#0000ff', 'line-width': 2 }}
-                        />
-                        <Layer
-                            id={MUNI_FILL_LAYER}
-                            type="fill"
-                            paint={{ 'fill-color': '#0000ff', 'fill-opacity': 0.1 }}
-                        />
-                    </Source>
-                )}
+                {/* Render every visible registry layer (configured in src/layers.js). */}
+                {visibleLayers.map((layer) => (
+                    <LayerSource key={layer.id} layer={layer} data={dataForLayer(layer)} />
+                ))}
 
-                {popupInfo && (
+                {popupInfo?.config?.popup && (
                     <Popup
                         longitude={popupInfo.longitude}
                         latitude={popupInfo.latitude}
@@ -254,17 +274,14 @@ function MapView() {
                     >
                         <div style={{ fontFamily: 'Arial, sans-serif' }}>
                             <h4 style={{ margin: '0 0 8px 0', color: '#1976d2' }}>
-                                {popupInfo.properties.MUNICIPALITY || 'N/A'}
+                                {popupInfo.properties[popupInfo.config.popup.titleField] || 'N/A'}
                             </h4>
-                            <p style={{ margin: '4px 0' }}>
-                                <strong>Code:</strong> {popupInfo.properties.MUNICODE || 'N/A'}
-                            </p>
-                            <p style={{ margin: '4px 0' }}>
-                                <strong>Square Miles:</strong>{' '}
-                                {popupInfo.properties.SQ_MILES
-                                    ? Number(popupInfo.properties.SQ_MILES).toFixed(2)
-                                    : 'N/A'}
-                            </p>
+                            {popupInfo.config.popup.rows.map((row) => (
+                                <p key={row.field} style={{ margin: '4px 0' }}>
+                                    <strong>{row.label}:</strong>{' '}
+                                    {formatPopupValue(popupInfo.properties[row.field], row.format)}
+                                </p>
+                            ))}
                         </div>
                     </Popup>
                 )}

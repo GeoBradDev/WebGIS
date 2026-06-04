@@ -1,167 +1,109 @@
-# WebGIS-React 🗺️
+# WebGIS Template — Web Client (React + MapLibre)
 
-A universal frontend template for modern **WebGIS** and **interactive web mapping** applications. Built with **React**, **React Leaflet**, and **Material UI**, this project integrates seamlessly with the [WebGIS-Django backend](https://github.com/GeoBradDev/WebGIS-Django) to power full-stack spatial web apps.
+The React web client for the WebGIS template. It renders an interactive
+**MapLibre GL** map (via `react-map-gl/maplibre`) with a config-driven layer
+system, a filterable attribute table and dashboard, and headless
+[django-allauth] authentication against the Django backend.
 
----
+This is one component of a single monorepo (see the repository root `README.md`
+and `ARCHITECTURE.md`). The recommended way to run the whole stack is
+`docker compose up --build` from the repo root.
 
-## 🚀 Get Started the Easy Way
+## Tech stack
 
-We recommend using the `bootstrap.sh` setup script from the backend project to automatically install and configure both frontend and backend services, including PostgreSQL/PostGIS and Django:
+| Technology | Purpose |
+| --- | --- |
+| React 19 + Vite | App framework and build tooling (plain JavaScript, no TypeScript) |
+| `react-map-gl/maplibre` + `maplibre-gl` | Map rendering |
+| `pmtiles` + `protomaps-themes-base` | Optional PMTiles vector basemap |
+| Material UI v7 + `@mui/x-data-grid` | UI components and the attribute table |
+| Recharts | Dashboard charts |
+| Zustand | State management (`src/store/`) |
+| React Router v7 | Routing (`/`, email verify / password reset) |
 
-```bash
-bash <(curl -s https://raw.githubusercontent.com/GeoBradDev/WebGIS-Django/main/scripts/bootstrap.sh)
-````
-
-This script will:
-
-* Clone both frontend and backend repos
-* Install required system packages and dependencies
-* Create a PostGIS-enabled PostgreSQL database
-* Set up environment variables and virtualenv
-* Launch both frontend and backend development servers
-
----
-
-## 🌟 Features
-
-* 🗺️ **Interactive Map** – Built with React Leaflet, supports layers, markers, and popups
-* 📍 **Search + Reverse Geocoding** – Location search with Nominatim API integration
-* 🧭 **Collapsible Sidebar** – For tools, forms, filters, and future extensions
-* 🖌️ **Material UI** – Clean, responsive, and accessible interface
-* 🔄 **Dynamic View** – Auto-pans and zooms to searched locations
-
----
-
-## 🛠️ Tech Stack
-
-| Technology        | Purpose                       |
-| ----------------- | ----------------------------- |
-| **React**         | Core frontend framework       |
-| **React Leaflet** | Map rendering and interaction |
-| **Material UI**   | UI components and layout      |
-| **Nominatim API** | Location search and geocoding |
-
----
-
-## ⚡ Manual Setup
-
-### Prerequisites
-
-* Node.js (v16+ recommended)
-* npm
-
-### Installation
+## Run it
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/GeoBradDev/WebGIS-React.git
-
-# 2. Navigate to project directory
-cd frontend
-
-# 3. Install dependencies
+# from frontend/
 npm install
-
-# 4. Start the development server
-npm run dev
+npm run dev        # http://localhost:5173
 ```
 
-> The app will be available at: [http://localhost:5173](http://localhost:5173)
+Other scripts: `npm run build`, `npm run preview`, `npm run lint`. The backend
+must be running (default `http://localhost:8000`) for auth and the backend-data
+layer; the simplest way to run both is `docker compose up` from the repo root.
 
----
+## Project structure
 
-## 📁 Project Structure
+Components live in `Components/` (capital `C`), a **sibling of `src/`**, not
+inside it. Imports cross that boundary (e.g. `src/App.jsx` imports
+`../Components/Sidebar.jsx`).
 
 ```
-WebGIS-React/
-├── public/             # Static assets (favicon, icons)
+frontend/
+├── Components/            # Map, Sidebar, table, dashboard, auth forms (capital C)
+│   ├── Mapview.jsx        # MapLibre map; renders every visible registry layer
+│   ├── Sidebar.jsx        # search, layer toggles, config-driven filters
+│   ├── CollapsableTable.jsx
+│   └── Dashboard.jsx
 ├── src/
-│   ├── components/     # Reusable UI and map components
-│   ├── hooks/          # Custom hooks (e.g., useGeocoder)
-│   ├── App.js          # Main application shell
-│   └── main.js         # React/Vite entry point
-├── .env                # Environment config (optional)
-├── package.json        # Project dependencies and scripts
-└── README.md           # Project documentation
+│   ├── main.jsx           # entry point
+│   ├── App.jsx            # app shell / layout
+│   ├── AppRoutes.jsx      # routes
+│   ├── layers.js          # << the layer registry (see Customization)
+│   ├── mapStyle.js        # basemap style builder (PMTiles or raster OSM)
+│   └── store/
+│       ├── useStore.js    # map/UI/data state + layer fetching & filtering
+│       └── useAuthStore.js# auth, persisted to localStorage
+├── constants/
+├── public/
+├── .env.example
+└── index.html
 ```
 
----
+## Environment variables
 
-## 🧪 Usage
+Only `VITE_`-prefixed vars are exposed to the client, and they are inlined at
+**build** time. Copy `.env.example` to `.env` and adjust. Key vars:
 
-### MapView Component
+- `VITE_API_URL` — base URL of the Django API (the allauth base is derived from it).
+- `VITE_MUNI_GEOJSON_URL` — the attribute-rich overlay's GeoJSON source.
+- `VITE_BASEMAP_PMTILES_URL` — optional PMTiles basemap; falls back to raster OSM when blank.
 
-* Extend the map with custom layers, GeoJSON, and Leaflet plugins
-* Customize markers, tooltips, popups, and basemaps
+See `.env.example` for the full, commented list.
 
-### Sidebar
+## Customization: add or swap a map layer
 
-* Add tools, forms, filters, or content panels
-* Easily repositioned or replaced using Material UI `Drawer`
+Layers are **data-driven from `src/layers.js`** — you do not edit the map,
+table, sidebar, or dashboard components to add one. Each entry in `LAYER_CONFIGS`
+describes a layer:
 
-### Search
+- `source`: either `{ kind: 'geojson-url', url }` (any external GeoJSON
+  FeatureCollection) or `{ kind: 'backend', endpoint }` (this template's own API,
+  fetched from `${VITE_API_URL}${endpoint}` and converted from the
+  `{items:[{geojson,...}]}` payload to a FeatureCollection).
+- `style`: line/fill colors and opacity used to draw it.
+- `primary: true` on exactly one layer: that layer's `columns`,
+  `categoricalFilters`, `rangeFilter`, `dashboard`, and `popup` field metadata
+  drive the attribute table, sidebar filters, dashboard charts, and map popups.
 
-* Type a location in the search bar
-* The map will pan to the selected location using OpenStreetMap data
+The template ships two examples: the St. Louis municipalities overlay
+(`geojson-url`, primary) and a `Demo Polygons (backend API)` layer
+(`kind: 'backend'`, `GET /api/polygons`) that demonstrates consuming the
+template's own backend (toggle it on in the sidebar; it shows whatever polygons
+exist in the database). Add your own by appending a config object — no component
+changes required.
 
----
+## Backend integration
 
-## 🛠 Customization
+This client pairs with the Django backend in `../backend` (Django Ninja +
+GeoDjango/PostGIS, django-allauth headless). Auth requests go to
+`/_allauth/app/v1/auth/...` with an `X-Session-Token`; data requests go to
+`${VITE_API_URL}/...`. The `Demo Polygons (backend API)` layer is the reference
+pattern for reading geospatial data from the backend.
 
-### Favicon
+## License
 
-1. Add your icon (e.g., `map-icon.svg`) to `public/`
-2. Update `public/index.html`:
+MIT.
 
-   ```html
-   <link rel="icon" type="image/svg+xml" href="/map-icon.svg" />
-   ```
-
-### Environment Variables
-
-Create a `.env` file if needed:
-
-```env
-VITE_API_URL=http://localhost:8000/api
-```
-
-Use `import.meta.env.VITE_API_URL` inside your components to access it.
-
-### Feature Ideas
-
-* 🔥 Add heatmap or clustering support
-* 🧭 Integrate routing or distance calculations
-* 🌐 Add multilingual support
-* 🗂️ Connect to REST APIs or WebGIS layers
-
----
-
-## 🔗 Backend Integration
-
-This frontend is designed to pair with:
-
-👉 **[WebGIS-Django Backend](https://github.com/GeoBradDev/WebGIS-Django)** – Includes Django Ninja, Django Allauth (headless), and PostGIS support
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome!
-Please open an issue for bugs or feature requests, or submit a pull request directly.
-
----
-
-## 📄 License
-
-MIT © [GeoBrad.dev](https://geobrad.dev)
-
----
-
-## 🙏 Acknowledgments
-
-* [React](https://reactjs.org/)
-* [Leaflet](https://leafletjs.com/)
-* [Material UI](https://mui.com/)
-* [OpenStreetMap / Nominatim](https://nominatim.openstreetmap.org/)
-
-# WebGIS-React-Native
+[django-allauth]: https://docs.allauth.org/

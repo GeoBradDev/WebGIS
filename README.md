@@ -113,12 +113,36 @@ Set the `SECRET`-typed env values (`SECRET_KEY`, `EMAIL_*`) in the App Platform 
 enabled automatically on first deploy by the `CreateExtension` migration. See
 [ARCHITECTURE.md §7](ARCHITECTURE.md) for details.
 
+## Data architecture
+
+The web map composes three kinds of geospatial data; pick whichever fits a given layer:
+
+- **PMTiles vector basemap** — the background map (Protomaps schema), served from a single
+  `.pmtiles` archive over HTTP range requests. Falls back to raster OSM when unset.
+- **Attribute-rich GeoJSON overlay** — small, filterable, attribute-heavy layers (the demo St.
+  Louis municipalities layer) fetched as GeoJSON and filtered client-side.
+- **This template's own backend API** — geospatial data served by the Django API
+  (`/api/points|polygons|lines`) and rendered on the map.
+
+Web layers are **config-driven from `frontend/src/layers.js`**: each entry declares its data
+`source` (`geojson-url` or `backend`), `style`, and field metadata. Add or swap a layer by editing
+that file — the map, attribute table, sidebar filters, and dashboard all read from it, so no
+component changes are needed. The shipped `Demo Polygons (backend API)` layer is the reference
+pattern for consuming the backend.
+
+## Security note: GDAL endpoints
+
+The backend's `/api/gdal/*` endpoints parse raster/vector files with GDAL/OGR. The GDAL version
+installed by the Docker base distro (3.6.2) has known advisories fixed only in much newer releases.
+File paths are confined to `GDAL_FILE_ROOT`, but treat any file these endpoints touch as **trusted**
+input. To expose them to untrusted users, sandbox GDAL or disable the router (drop the
+`add_router("/gdal", ...)` line in `backend/api/api.py`). See `backend/ReadMe.md`.
+
 ## Development notes
 
 - The web client is plain **JavaScript** (no TypeScript); lint with `npm run lint`.
-- Backend tests: `cd backend && pytest`.
-- Per-component detail lives in `backend/ReadMe.md`, `frontend/README.md`, `mobile/README.md`
-  (their multi-repo setup sections predate this monorepo; this README is authoritative).
+- Backend tests: `cd backend && pytest` (needs a PostGIS database; Django builds an isolated test DB).
+- Per-component detail lives in `backend/ReadMe.md`, `frontend/README.md`, and `mobile/README.md`.
 
 ## License
 

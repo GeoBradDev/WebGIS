@@ -41,7 +41,9 @@ def parse_geometry(geojson: dict) -> GEOSGeometry:
 # --------------------------------------------------------------------------- #
 def create_point(payload) -> DemoPoint:
     return DemoPoint.objects.create(
-        name=payload.name, geom=Point(payload.lng, payload.lat, srid=4326)
+        name=payload.name,
+        description=payload.description,
+        geom=Point(payload.lng, payload.lat, srid=4326),
     )
 
 
@@ -49,6 +51,8 @@ def apply_point_changes(point: DemoPoint, data: dict) -> DemoPoint:
     """Apply a (possibly partial) set of point fields and save."""
     if "name" in data:
         point.name = data["name"]
+    if "description" in data:
+        point.description = data["description"]
     if "lng" in data or "lat" in data:
         lng = data.get("lng", point.geom.x)
         lat = data.get("lat", point.geom.y)
@@ -83,17 +87,23 @@ def nearest_point(lng: float, lat: float) -> dict | None:
 # Polygons / Lines
 # --------------------------------------------------------------------------- #
 def create_polygon(payload) -> DemoPolygon:
-    return DemoPolygon.objects.create(name=payload.name, geom=parse_geometry(payload.geojson))
+    return DemoPolygon.objects.create(
+        name=payload.name, description=payload.description, geom=parse_geometry(payload.geojson)
+    )
 
 
 def create_line(payload) -> DemoLine:
-    return DemoLine.objects.create(name=payload.name, geom=parse_geometry(payload.geojson))
+    return DemoLine.objects.create(
+        name=payload.name, description=payload.description, geom=parse_geometry(payload.geojson)
+    )
 
 
 def apply_geometry_changes(obj, data: dict):
-    """Apply a (possibly partial) set of {name, geojson} fields and save."""
+    """Apply a (possibly partial) set of {name, description, geojson} fields and save."""
     if "name" in data:
         obj.name = data["name"]
+    if "description" in data:
+        obj.description = data["description"]
     if data.get("geojson") is not None:
         obj.geom = parse_geometry(data["geojson"])
     obj.save()

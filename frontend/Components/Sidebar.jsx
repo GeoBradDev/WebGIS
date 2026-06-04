@@ -3,6 +3,7 @@ import { Typography, TextField, Button, Paper, Box, IconButton, Checkbox, FormCo
 import { ChevronLeft, ChevronRight, Clear } from '@mui/icons-material';
 import PropTypes from 'prop-types';
 import useStore from '../src/store/useStore';
+import { PRIMARY_LAYER } from '../src/layers';
 
 function Sidebar({ setMapCenter }) {
     const [searchText, setSearchText] = useState('');
@@ -11,18 +12,14 @@ function Sidebar({ setMapCenter }) {
     const layers = useStore(state => state.layers);
     const toggleLayerVisibility = useStore(state => state.toggleLayerVisibility);
     const filters = useStore(state => state.filters);
-    const setFilters = useStore(state => state.setFilters);
+    const setCategoricalFilter = useStore(state => state.setCategoricalFilter);
+    const setRange = useStore(state => state.setRange);
     const resetFilters = useStore(state => state.resetFilters);
-    const getUniqueMunicipalities = useStore(state => state.getUniqueMunicipalities);
-    const getUniqueMunicodes = useStore(state => state.getUniqueMunicodes);
+    const getUniqueValues = useStore(state => state.getUniqueValues);
 
 
     const handleFormSubmit = (event) => {
         event.preventDefault();
-    };
-
-    const handleFilterChange = (field, value) => {
-        setFilters({ [field]: value });
     };
 
     const handleResetFilters = () => {
@@ -142,13 +139,13 @@ function Sidebar({ setMapCenter }) {
                                     label={
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <span>{layer.name}</span>
-                                            {layer.id === 'st-louis-municipalities' && (
+                                            {layer.style && (
                                                 <Box
                                                     sx={{
                                                         width: 50,
-                                                        height: 25,
-                                                        backgroundColor: 'rgba(0, 0, 255, 0.3)',
-                                                        border: '2px solid blue',
+                                                        height: 20,
+                                                        backgroundColor: layer.style.fillColor,
+                                                        border: `2px solid ${layer.style.lineColor}`,
                                                         borderRadius: 0.5,
                                                     }}
                                                 />
@@ -172,82 +169,65 @@ function Sidebar({ setMapCenter }) {
                             onSubmit={handleFormSubmit}
                             sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
                         >
-                            <FormControl fullWidth size="small">
-                                <InputLabel>Municipality Names</InputLabel>
-                                <Select
-                                    multiple
-                                    variant="outlined"
-                                    value={filters.municipality}
-                                    onChange={(e) => handleFilterChange('municipality', e.target.value)}
-                                    renderValue={(selected) => (
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                            {selected.map((value) => (
-                                                <Chip key={value} label={value} size="small" />
-                                            ))}
-                                        </Box>
-                                    )}
-                                >
-                                    {getUniqueMunicipalities().map((name) => (
-                                        <MenuItem key={name} value={name}>
-                                            {name}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            
-                            <FormControl fullWidth size="small">
-                                <InputLabel>Municipal Codes</InputLabel>
-                                <Select
-                                    multiple
-                                    variant="outlined"
-                                    value={filters.municode}
-                                    onChange={(e) => handleFilterChange('municode', e.target.value)}
-                                    renderValue={(selected) => (
-                                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                            {selected.map((value) => (
-                                                <Chip key={value} label={value} size="small" />
-                                            ))}
-                                        </Box>
-                                    )}
-                                >
-                                    {getUniqueMunicodes().map((code) => (
-                                        <MenuItem key={code} value={code}>
-                                            {code}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                            
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                                <TextField
-                                    label="Min Area (sq mi)"
-                                    variant="outlined"
-                                    size="small"
-                                    type="number"
-                                    value={filters.areaMin}
-                                    onChange={(e) => handleFilterChange('areaMin', e.target.value)}
-                                    placeholder="0"
-                                    inputProps={{ step: "0.01" }}
-                                />
-                                <TextField
-                                    label="Max Area (sq mi)"
-                                    variant="outlined"
-                                    size="small"
-                                    type="number"
-                                    value={filters.areaMax}
-                                    onChange={(e) => handleFilterChange('areaMax', e.target.value)}
-                                    placeholder="100"
-                                    inputProps={{ step: "0.01" }}
-                                />
-                            </Box>
-                            
+                            {/* Categorical filters, generated from the primary layer config. */}
+                            {(PRIMARY_LAYER.categoricalFilters || []).map((f) => (
+                                <FormControl key={f.field} fullWidth size="small">
+                                    <InputLabel>{f.label}</InputLabel>
+                                    <Select
+                                        multiple
+                                        variant="outlined"
+                                        value={filters.categorical[f.field] || []}
+                                        onChange={(e) => setCategoricalFilter(f.field, e.target.value)}
+                                        renderValue={(selected) => (
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                                {selected.map((value) => (
+                                                    <Chip key={value} label={value} size="small" />
+                                                ))}
+                                            </Box>
+                                        )}
+                                    >
+                                        {getUniqueValues(f.field).map((option) => (
+                                            <MenuItem key={option} value={option}>
+                                                {option}
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            ))}
+
+                            {/* Numeric range filter, from the primary layer config. */}
+                            {PRIMARY_LAYER.rangeFilter && (
+                                <Box sx={{ display: 'flex', gap: 1 }}>
+                                    <TextField
+                                        label={`Min ${PRIMARY_LAYER.rangeFilter.label}`}
+                                        variant="outlined"
+                                        size="small"
+                                        type="number"
+                                        value={filters.rangeMin}
+                                        onChange={(e) => setRange('rangeMin', e.target.value)}
+                                        placeholder="0"
+                                        inputProps={{ step: "0.01" }}
+                                    />
+                                    <TextField
+                                        label={`Max ${PRIMARY_LAYER.rangeFilter.label}`}
+                                        variant="outlined"
+                                        size="small"
+                                        type="number"
+                                        value={filters.rangeMax}
+                                        onChange={(e) => setRange('rangeMax', e.target.value)}
+                                        placeholder="100"
+                                        inputProps={{ step: "0.01" }}
+                                    />
+                                </Box>
+                            )}
+
                             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1 }}>
                                 <Button type="submit" variant="contained" color="primary">
                                     Apply Filters
                                 </Button>
-                                <Button 
-                                    type="button" 
-                                    variant="contained" 
+                                <Button
+                                    type="button"
+                                    variant="contained"
                                     color="secondary"
                                     onClick={handleResetFilters}
                                 >

@@ -174,12 +174,18 @@ or package linkage between the three. Each has its own dependencies and tooling.
 
 ## 9. Known issues / follow-ups
 
-- **Subproject READMEs predate the monorepo.** `backend/ReadMe.md`, `frontend/README.md`, and
-  `mobile/README.md` still describe cloning three separate repos and running a multi-repo
-  bootstrap. The root `README.md` is now authoritative; the subproject READMEs are kept for
-  per-component detail but their setup sections are superseded.
-- **Unused backend deps.** `numpy`, `nltk`, `pillow`, `terminaltables`, `pip-check`,
-  `pip-review` are in `requirements.txt` but not imported by the app — candidates for cleanup.
 - **GDAL CVEs.** The container's GDAL 3.6.2 carries 3 advisories fixed only in GDAL 3.13, which
-  no current Linux distro ships via apt. Lock down or disable the `/api/gdal/*` endpoints if
-  they process untrusted input until a 3.13 base is viable.
+  no current Linux distro ships via apt. The `/api/gdal/*` endpoints confine paths to
+  `GDAL_FILE_ROOT` and now carry a security note (in `backend/api/routers/gdal.py`, `backend/ReadMe.md`,
+  and the root `README.md`); lock down or disable them if they process untrusted input until a
+  3.13 base is viable.
+- **`numpy` is a transitive GDAL requirement, not unused.** It is not imported directly, but GDAL's
+  `ReadAsArray` (`api/services.pixel_value`) needs it and the Dockerfile installs it before the GDAL
+  binding so `gdal_array` builds. The previously-listed unused deps (`nltk`, `pillow`,
+  `terminaltables`, `pip-check`, `pip-review`, plus the nltk-only `joblib`/`regex`/`tqdm`) have been
+  removed from `requirements.txt`.
+- **Resolved.** The subproject READMEs (`backend/ReadMe.md`, `frontend/README.md`, `mobile/README.md`)
+  have been rewritten to match the monorepo and current stacks. Backend tests now exist
+  (`backend/api/tests.py`, run with `pytest` via `pytest-django`/`pytest.ini`). The web layer system
+  is config-driven (`frontend/src/layers.js`) and the non-functional frontend `test`/`type-check`
+  npm scripts were removed.

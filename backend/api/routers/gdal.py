@@ -3,6 +3,15 @@
 File-path parameters are confined to ``settings.GDAL_FILE_ROOT`` (see
 ``services._safe_path``); failures return proper 4xx responses rather than a
 200 with an ``{"error": ...}`` body.
+
+SECURITY: these endpoints parse raster/vector files with GDAL/OGR. The GDAL
+version shipped by the Dockerfile's base distro (3.6.2) has known advisories
+that are only fixed in much newer GDAL releases not yet packaged by stable
+distros. Treat any file these endpoints touch as trusted input. If you expose
+them to untrusted users, sandbox GDAL (e.g. restrict drivers via
+``GDAL_SKIP``/``OGR_SKIP``, run in an isolated container) or disable this router
+(drop the ``add_router("/gdal", ...)`` line in ``api/api.py``). The
+``/upload-reproject`` endpoint in particular accepts an uploaded file.
 """
 
 from ninja import Router, UploadedFile

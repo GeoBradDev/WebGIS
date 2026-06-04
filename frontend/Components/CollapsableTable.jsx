@@ -2,6 +2,7 @@ import {  useMemo } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import useStore from '../src/store/useStore';
+import { PRIMARY_LAYER } from '../src/layers';
 
 const CollapsibleTable = () => {
     const geojsonData = useStore((state) => state.geojsonData);
@@ -9,39 +10,19 @@ const CollapsibleTable = () => {
     const toggleTable = useStore((state) => state.toggleTable);
 
     // Transform GeoJSON features into rows using useMemo to memoize rows calculation.
-    // DataGrid requires a unique id per row; fall back to the feature id / index
-    // when the source layer doesn't expose an OBJECTID field.
+    // DataGrid requires a unique id per row; use the primary layer's id field,
+    // falling back to the feature id / index when it isn't present.
     const rows = useMemo(() => {
         return (
             geojsonData?.features?.map((feature, index) => ({
-                id: feature.properties?.OBJECTID ?? feature.id ?? index,
+                id: feature.properties?.[PRIMARY_LAYER.idField] ?? feature.id ?? index,
                 ...feature.properties,
             })) || []
         );
     }, [geojsonData]);
 
-    // Define columns for the DataGrid
-    const columns = useMemo(
-        () => [
-            { field: 'OBJECTID', headerName: 'OBJECTID', flex: 1 },
-            { field: 'MUNICIPALITY', headerName: 'Municipality', flex: 2 },
-            { field: 'MUNI', headerName: 'MUNI Code', flex: 1 },
-            { field: 'MUNICODE', headerName: 'Municipality Code', flex: 1 },
-            { field: 'LABELTXT', headerName: 'Label Text', flex: 1, type: 'number' },
-            { field: 'SQ_MILES', headerName: 'Square Miles', flex: 1, type: 'number' },
-            {
-                field: 'last_edited_date',
-                headerName: 'Last Edited Date',
-                flex: 2,
-                type: 'date',
-                valueGetter: (params) =>
-                    params.value ? new Date(params.value).toLocaleDateString() : '',
-            },
-            { field: 'Shape__Area', headerName: 'Area', flex: 1, type: 'number' },
-            { field: 'Shape__Length', headerName: 'Length', flex: 1, type: 'number' },
-        ],
-        []
-    );
+    // Columns come from the primary layer config (src/layers.js).
+    const columns = useMemo(() => PRIMARY_LAYER.columns || [], []);
 
     return (
         <Box

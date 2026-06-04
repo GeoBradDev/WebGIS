@@ -2,23 +2,19 @@ import PropTypes from 'prop-types';
 import { Box, Typography, Paper, Grid } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { PRIMARY_LAYER } from '../src/layers';
 
+// Chart axes and table columns come from the primary layer config (src/layers.js),
+// so this dashboard adapts when you point the template at a different dataset.
 const Dashboard = ({ data }) => {
-
-    const columns = [
-        { field: 'id', headerName: 'ID', width: 90 },
-        { field: 'MUNICIPALITY', headerName: 'Municipality', width: 200 },
-        { field: 'MUNI', headerName: 'MUNI', width: 100 },
-        { field: 'MUNICODE', headerName: 'MUNI Code', width: 120 },
-        { field: 'LABELTXT', headerName: 'Label', width: 100 },
-        { field: 'SQ_MILES', headerName: 'Square Miles', width: 150 },
-    ];
+    const { categoryField, valueField, valueLabel } = PRIMARY_LAYER.dashboard;
+    const columns = PRIMARY_LAYER.columns || [];
 
     const rows = data.map((row, index) => ({ ...row, id: index }));
 
     const pieData = data
-        .filter(d => d.SQ_MILES)
-        .map(item => ({ name: item.MUNICIPALITY, value: item.SQ_MILES }));
+        .filter((d) => d[valueField])
+        .map((item) => ({ name: item[categoryField], value: item[valueField] }));
 
     const COLORS = ['#8884d8', '#82ca9d', '#ffc658', '#d0ed57', '#a4de6c', '#8dd1e1'];
 
@@ -33,21 +29,21 @@ const Dashboard = ({ data }) => {
             </Paper>
 
             <Typography variant="h6" gutterBottom>
-                Area (Square Miles) by Municipality
+                {valueLabel} by {categoryField}
             </Typography>
 
             <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={rows}>
-                    <XAxis dataKey="MUNICIPALITY" angle={-45} textAnchor="end" height={80}/>
+                    <XAxis dataKey={categoryField} angle={-45} textAnchor="end" height={80}/>
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="SQ_MILES" fill="#8884d8" />
+                    <Bar dataKey={valueField} fill="#8884d8" />
                 </BarChart>
             </ResponsiveContainer>
 
             <Grid container columns={12} spacing={2} sx={{ mt: 2 }}>
                 <Grid gridColumn="span 12" md={6}>
-                    <Typography variant="h6">Municipality Size Distribution</Typography>
+                    <Typography variant="h6">Size Distribution</Typography>
                     <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
                             <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={100}>
@@ -61,13 +57,13 @@ const Dashboard = ({ data }) => {
                 </Grid>
 
                 <Grid gridColumn="span 12">
-                    <Typography variant="h6">Top 5 Largest Municipalities</Typography>
+                    <Typography variant="h6">Top 5 by {valueLabel}</Typography>
                     <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={[...rows].sort((a, b) => b.SQ_MILES - a.SQ_MILES).slice(0,5)}>
-                            <XAxis dataKey="MUNICIPALITY" />
+                        <BarChart data={[...rows].sort((a, b) => b[valueField] - a[valueField]).slice(0, 5)}>
+                            <XAxis dataKey={categoryField} />
                             <YAxis />
                             <Tooltip />
-                            <Bar dataKey="SQ_MILES" fill="#82ca9d" />
+                            <Bar dataKey={valueField} fill="#82ca9d" />
                         </BarChart>
                     </ResponsiveContainer>
                 </Grid>

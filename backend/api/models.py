@@ -24,9 +24,20 @@ class CustomUser(AbstractUser):
         super().save(*args, **kwargs)
 
 
+# Demo feature models.
+#
+# These intentionally carry a couple of ordinary (non-geometry) attributes
+# alongside the geometry to show how to extend a GeoDjango model: add fields
+# here, run `makemigrations`/`migrate`, surface them in `api/schemas.py`
+# (In/Out/Patch), and set them in `api/services.py`. `description` is a plain
+# editable attribute; `created_at` is a server-managed timestamp.
+
+
 class DemoPolygon(models.Model):
     name = models.CharField(max_length=255)
+    description = models.CharField(max_length=500, blank=True, default="")
     geom = models.PolygonField(srid=4326)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
@@ -34,7 +45,9 @@ class DemoPolygon(models.Model):
 
 class DemoPoint(models.Model):
     name = models.CharField(max_length=255)
+    description = models.CharField(max_length=500, blank=True, default="")
     geom = models.PointField(srid=4326)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
@@ -42,7 +55,9 @@ class DemoPoint(models.Model):
 
 class DemoLine(models.Model):
     name = models.CharField(max_length=255)
+    description = models.CharField(max_length=500, blank=True, default="")
     geom = models.LineStringField(srid=4326)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name

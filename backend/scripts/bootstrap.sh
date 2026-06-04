@@ -78,16 +78,25 @@ detect_os() {
 }
 
 # ────────────────────────── CONFIGURATION ──────────────────────────
-# Database Configuration
-PG_VER=17 #TODO: Check for the postgres version
-DB_NAME="webgisdb" #TODO: Set database name
-DB_USER="myuser" #TODO: Set database user
-DB_PASS="mypassword" #TODO: Set database password
+# This script provisions a *host* (non-container) Postgres/PostGIS + venv setup.
+# For most users `docker compose up --build` from the repo root is simpler and is
+# the recommended path; use this only when you want a native local install.
+#
+# Every value below can be overridden via environment variables, e.g.:
+#   DB_PASS=secret DJANGO_SUPERPASS=secret ./backend/scripts/bootstrap.sh
+# The defaults match backend/.env.example and are for LOCAL DEV ONLY; never ship
+# them to production.
 
-# Django Configuration
-DJANGO_SUPERUSER="admin" #TODO: Set Django superuser username
-DJANGO_SUPERPASS="adminpass" #TODO: Set Django superuser password
-DJANGO_SUPEREMAIL="admin@example.com" #TODO: Set Django superuser email
+# Database configuration
+PG_VER="${PG_VER:-16}"                 # PostgreSQL major version to install (PostGIS 3)
+DB_NAME="${DB_NAME:-webgisdb}"
+DB_USER="${DB_USER:-webgis}"
+DB_PASS="${DB_PASS:-webgis}"
+
+# Django superuser (created non-interactively)
+DJANGO_SUPERUSER="${DJANGO_SUPERUSER:-admin}"
+DJANGO_SUPERPASS="${DJANGO_SUPERPASS:-adminpass}"
+DJANGO_SUPEREMAIL="${DJANGO_SUPEREMAIL:-admin@example.com}"
 PYTHON_VENV=".venv"
 
 # Monorepo subdirectories (this is one repo; run this script from the repo root).
