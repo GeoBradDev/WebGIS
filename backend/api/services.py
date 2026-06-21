@@ -7,10 +7,21 @@ HTTP and reusable across endpoints.
 """
 
 import json
+import math
 import os
+import struct
 
 from django.conf import settings
-from django.contrib.gis.db.models.functions import Distance
+from django.contrib.gis.db.models import Union
+from django.contrib.gis.db.models.functions import (
+    Area,
+    AsGeoJSON,
+    Centroid,
+    Distance,
+    GeomOutputGeoFunc,
+    Transform,
+)
+from django.contrib.gis.gdal import CoordTransform, SpatialReference
 from django.contrib.gis.geos import GEOSGeometry, Point, Polygon
 from django.contrib.gis.measure import D
 from django.core.files.base import ContentFile
@@ -23,6 +34,20 @@ from .models import DemoLine, DemoPoint, DemoPolygon
 
 class InvalidGeometry(Exception):
     """Raised when a client-supplied GeoJSON geometry cannot be parsed."""
+
+
+# A global equal-area projection (NSIDC EASE-Grid 2.0 Global, metres). Areas are
+# computed by reprojecting to this from EPSG:4326 so the result is real square
+# metres rather than meaningless square degrees, and it stays valid worldwide
+# (unlike a region-specific projection such as US-only EPSG:5070).
+EQUAL_AREA_SRID = 6933
+
+
+class SimplifyPreserveTopology(GeomOutputGeoFunc):
+    """Wraps PostGIS ``ST_SimplifyPreserveTopology`` so simplification runs in
+    the database instead of pulling every geometry into Python."""
+
+    function = "ST_SimplifyPreserveTopology"
 
 
 def parse_geometry(geojson: dict) -> GEOSGeometry:
@@ -62,19 +87,17 @@ def apply_point_changes(point: DemoPoint, data: dict) -> DemoPoint:
 
 
 def points_near(lng: float, lat: float, radius_meters: float):
-    # `geom` is geometry in EPSG:4326, where raw distances are in degrees. The
-    # "spheroid" option makes PostGIS compute true geodetic distance in meters
-    # (ST_DWithin/ST_DistanceSpheroid), so the radius is interpreted correctly.
+    # `geom` is a geography column, so `dwithin` takes a real metric distance and
+    # uses the spatial index (ST_DWithin on geography is spheroidal, in metres).
     point = Point(lng, lat, srid=4326)
-    return DemoPoint.objects.filter(
-        geom__distance_lte=(point, D(m=radius_meters), "spheroid")
-    )
+    return DemoPoint.objects.filter(geom__dwithin=(point, D(m=radius_meters)))
 
 
 def nearest_point(lng: float, lat: float) -> dict | None:
     point = Point(lng, lat, srid=4326)
+    # Distance on a geography column is already in metres on the spheroid.
     nearest = (
-        DemoPoint.objects.annotate(distance=Distance("geom", point, spheroid=True))
+        DemoPoint.objects.annotate(distance=Distance("geom", point))
         .order_by("distance")
         .first()
     )
@@ -116,32 +139,34 @@ def polygons_in_bbox(minx: float, miny: float, maxx: float, maxy: float):
 
 
 def polygon_areas() -> list[dict]:
-    return [{"id": p.id, "name": p.name, "area": p.geom.area} for p in DemoPolygon.objects.all()]
+    # Area is computed in the DB, reprojected to an equal-area CRS so the value
+    # is square metres (see EQUAL_AREA_SRID) rather than square degrees.
+    qs = DemoPolygon.objects.annotate(area_m2=Area(Transform("geom", EQUAL_AREA_SRID)))
+    return [{"id": p.id, "name": p.name, "area": p.area_m2.sq_m} for p in qs]
 
 
 def polygon_centroids() -> list[dict]:
-    return [
-        {"id": p.id, "name": p.name, "geojson": json.loads(p.geom.centroid.geojson)}
-        for p in DemoPolygon.objects.all()
-    ]
+    # Centroid computed by PostGIS and serialized to GeoJSON in the DB.
+    qs = DemoPolygon.objects.annotate(centroid_json=AsGeoJSON(Centroid("geom")))
+    return [{"id": p.id, "name": p.name, "geojson": json.loads(p.centroid_json)} for p in qs]
 
 
 def simplify_polygons(tolerance: float) -> list[dict]:
-    return [
-        {
-            "id": p.id,
-            "name": p.name,
-            "geojson": json.loads(p.geom.simplify(tolerance, preserve_topology=True).geojson),
-        }
-        for p in DemoPolygon.objects.all()
-    ]
+    # Simplification + GeoJSON serialization both run in PostGIS.
+    qs = DemoPolygon.objects.annotate(
+        simplified_json=AsGeoJSON(SimplifyPreserveTopology("geom", tolerance))
+    )
+    return [{"id": p.id, "name": p.name, "geojson": json.loads(p.simplified_json)} for p in qs]
 
 
 # --------------------------------------------------------------------------- #
 # Spatial relationships & geometry operations
 # --------------------------------------------------------------------------- #
 def points_within(polygon: DemoPolygon):
-    return DemoPoint.objects.filter(geom__within=polygon.geom)
+    # `coveredby` rather than `within`: DemoPoint.geom is a geography column and
+    # PostGIS geography supports ST_CoveredBy but not ST_Within. For a point,
+    # "covered by the polygon" is equivalent to "within" (boundary included).
+    return DemoPoint.objects.filter(geom__coveredby=polygon.geom)
 
 
 def geometry_intersection(geom_a, geom_b) -> dict | None:
@@ -155,17 +180,32 @@ def geometry_difference(geom_a, geom_b) -> dict | None:
 
 
 def union_all_polygons() -> dict | None:
-    polygons = list(DemoPolygon.objects.all())
-    if not polygons:
+    # Single-query aggregate union in PostGIS instead of an O(n) Python fold.
+    union = DemoPolygon.objects.aggregate(u=Union("geom"))["u"]
+    if union is None:
         return None
-    union = polygons[0].geom
-    for poly in polygons[1:]:
-        union = union.union(poly.geom)
     return json.loads(union.geojson)
 
 
-def buffer_polygon(polygon: DemoPolygon, distance: float) -> dict:
-    return json.loads(polygon.geom.buffer(distance).geojson)
+def buffer_polygon(polygon: DemoPolygon, distance_meters: float) -> dict:
+    """Buffer a polygon by a true metric distance, returning GeoJSON in 4326.
+
+    The geometry is stored in EPSG:4326, whose units are degrees, so buffering
+    it directly would treat ``distance_meters`` as degrees. Instead we project
+    to a local azimuthal-equidistant CRS centred on the polygon (units = metres),
+    buffer there, then project the result back to 4326.
+    """
+    geom = polygon.geom.clone()
+    centroid = geom.centroid
+    aeqd = SpatialReference(
+        f"+proj=aeqd +lat_0={centroid.y} +lon_0={centroid.x} "
+        f"+x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs"
+    )
+    wgs84 = SpatialReference(4326)
+    geom.transform(CoordTransform(wgs84, aeqd))
+    buffered = geom.buffer(distance_meters)
+    buffered.transform(CoordTransform(aeqd, wgs84))
+    return json.loads(buffered.geojson)
 
 
 # --------------------------------------------------------------------------- #
@@ -202,14 +242,27 @@ def pixel_value(raster_path: str, lng: float, lat: float) -> dict:
     srs = osr.SpatialReference(wkt=ds.GetProjection())
     srs_latlon = osr.SpatialReference()
     srs_latlon.ImportFromEPSG(4326)
+    # GDAL 3 honours each CRS's authority axis order; for EPSG:4326 that is
+    # (lat, lon). Force traditional (lon, lat) order so we can pass and read
+    # coordinates as (x=lon, y=lat) without silently swapping them.
+    srs_latlon.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
     transform = osr.CoordinateTransformation(srs_latlon, srs)
     x_geo, y_geo, _ = transform.TransformPoint(lng, lat)
-    px = int((x_geo - gt[0]) / gt[1])
-    py = int((y_geo - gt[3]) / gt[5])
-    arr = ds.GetRasterBand(1).ReadAsArray(px, py, 1, 1)
-    if arr is None:
+    # floor (not int(), which truncates toward zero): a coordinate up to one
+    # pixel west/north of the origin maps to a negative fraction, and int() would
+    # round it to 0 and read the edge pixel instead of reporting out-of-extent.
+    px = math.floor((x_geo - gt[0]) / gt[1])
+    py = math.floor((y_geo - gt[3]) / gt[5])
+    if not (0 <= px < ds.RasterXSize and 0 <= py < ds.RasterYSize):
         raise HttpError(400, "Coordinate is outside the raster extent")
-    return {"value": float(arr[0][0])}
+    # ReadRaster (core bindings) rather than ReadAsArray, which needs the
+    # optional gdal_array/NumPy C bridge that isn't always built. Read the one
+    # pixel normalized to Float64 and unpack the 8 bytes.
+    data = ds.GetRasterBand(1).ReadRaster(px, py, 1, 1, buf_type=gdal.GDT_Float64)
+    if data is None:
+        raise HttpError(400, "Could not read raster value at coordinate")
+    return {"value": struct.unpack("d", data)[0]}
 
 
 def clip_raster(raster_path: str, out_path: str, minx, miny, maxx, maxy) -> dict:
@@ -248,7 +301,12 @@ def upload_and_reproject(file) -> dict:
     layer = ds.GetLayer()
     target_srs = osr.SpatialReference()
     target_srs.ImportFromEPSG(4326)
-    transform = osr.CoordinateTransformation(layer.GetSpatialRef(), target_srs)
+    # Emit (lon, lat) GeoJSON regardless of the authority axis order GDAL 3
+    # would otherwise apply to EPSG:4326 (which is lat, lon).
+    target_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    source_srs = layer.GetSpatialRef()
+    source_srs.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+    transform = osr.CoordinateTransformation(source_srs, target_srs)
     features = []
     for feat in layer:
         geom = feat.GetGeometryRef()

@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "name": "demo_polygons",
+  "crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Downtown", "description": "Downtown St. Louis sample block" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-90.196, 38.625], [-90.196, 38.633], [-90.186, 38.633], [-90.186, 38.625], [-90.196, 38.625]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Forest Park", "description": "Forest Park sample area" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-90.294, 38.636], [-90.294, 38.644], [-90.279, 38.644], [-90.279, 38.636], [-90.294, 38.636]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Riverfront", "description": "Mississippi riverfront sample parcel" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[-90.184, 38.617], [-90.184, 38.628], [-90.178, 38.628], [-90.178, 38.617], [-90.184, 38.617]]]
+      }
+    }
+  ]
+}

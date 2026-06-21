@@ -7,7 +7,8 @@ Static sub-paths (e.g. /points/near, /polygons/areas) are declared before the
 from typing import List
 
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import Query, Router
+from ninja.errors import HttpError
 from ninja.pagination import paginate
 
 from .. import services
@@ -39,7 +40,12 @@ def list_points(request):
 
 
 @router.get("/points/near", response=List[PointOut], tags=["Points"])
-def points_near(request, lng: float, lat: float, radius_meters: float):
+def points_near(
+    request,
+    lng: float = Query(..., ge=-180, le=180, description="Longitude (WGS84)"),
+    lat: float = Query(..., ge=-90, le=90, description="Latitude (WGS84)"),
+    radius_meters: float = Query(..., gt=0, description="Search radius in metres"),
+):
     """Points within ``radius_meters`` of a location."""
     return services.points_near(lng, lat, radius_meters)
 
@@ -83,8 +89,16 @@ def list_polygons(request):
 
 
 @router.get("/polygons/bbox", response=List[PolygonOut], tags=["Polygons"])
-def polygons_in_bbox(request, minx: float, miny: float, maxx: float, maxy: float):
+def polygons_in_bbox(
+    request,
+    minx: float = Query(..., ge=-180, le=180),
+    miny: float = Query(..., ge=-90, le=90),
+    maxx: float = Query(..., ge=-180, le=180),
+    maxy: float = Query(..., ge=-90, le=90),
+):
     """Polygons intersecting a bounding box."""
+    if minx >= maxx or miny >= maxy:
+        raise HttpError(422, "Invalid bbox: require minx < maxx and miny < maxy")
     return services.polygons_in_bbox(minx, miny, maxx, maxy)
 
 
@@ -99,7 +113,10 @@ def polygon_centroids(request):
 
 
 @router.get("/polygons/simplify", response=List[FeatureGeoJSONOut], tags=["Polygons"])
-def simplify_polygons(request, tolerance: float = 0.001):
+def simplify_polygons(
+    request,
+    tolerance: float = Query(0.001, gt=0, description="Simplification tolerance in degrees"),
+):
     return services.simplify_polygons(tolerance)
 
 

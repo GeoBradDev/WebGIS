@@ -27,8 +27,6 @@ idna==3.18
 iniconfig==2.1.0
 kombu==5.5.4
 lxml==6.1.1
-# numpy is not imported directly, but GDAL's ReadAsArray (api/services.pixel_value)
-# requires it and the Dockerfile installs it before the GDAL binding so gdal_array builds.
 numpy==2.3.0
 packaging==25.0
 pluggy==1.6.0
