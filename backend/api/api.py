@@ -12,7 +12,6 @@ from .routers.spatial import router as spatial_router
 from .services import InvalidGeometry
 
 api = NinjaAPI(
-    csrf=False,
     title="Django WebGIS API Template",
     version="0.3.0",
     description="""

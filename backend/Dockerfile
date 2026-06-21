@@ -12,7 +12,7 @@
 # here so the container's GDAL always matches its own libgdal.
 # ─────────────────────────────────────────────────────────────────────────────
 
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.14
 
 # ---------- Stage 1: builder ----------
 FROM python:${PYTHON_VERSION}-slim-bookworm AS builder

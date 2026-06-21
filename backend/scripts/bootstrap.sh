@@ -452,7 +452,7 @@ setup_django_superuser() {
 from django.contrib.auth import get_user_model
 User = get_user_model()
 if not User.objects.filter(username='$DJANGO_SUPERUSER').exists():
-    User.objects.create_superuser('$DJANGO_SUPERUSER', '$DJANGO_SUPEREMAIL', '$DJANGO_SUPERPASS')
+    User.objects.create_superuser(username='$DJANGO_SUPERUSER', email='$DJANGO_SUPEREMAIL', password='$DJANGO_SUPERPASS')
     print("Superuser created successfully.")
 else:
     print("Superuser already exists.")

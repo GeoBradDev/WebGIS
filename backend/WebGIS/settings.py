@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -39,6 +40,14 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env_bool('DEBUG', False)
+
+# Fail fast on a missing key in production; allow an insecure dev default so a
+# fresh checkout runs without first generating one.
+if not SECRET_KEY:
+    if DEBUG:
+        SECRET_KEY = 'django-insecure-dev-only-key-set-SECRET_KEY-in-env'
+    else:
+        raise ImproperlyConfigured('SECRET_KEY environment variable is required when DEBUG=False')
 
 # Hosts/origins. In dev we default to localhost; in prod set these via env.
 ALLOWED_HOSTS = env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1')
@@ -113,6 +122,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -207,6 +217,10 @@ if os.getenv('DATABASE_URL'):
         'default': dj_database_url.config(
             default=os.getenv('DATABASE_URL'),
             conn_max_age=600,
+            # With persistent connections, verify the connection is still usable
+            # at the start of each request so a DB restart doesn't surface a dead
+            # socket as a 500.
+            conn_health_checks=True,
             # A DATABASE_URL means a managed DB (e.g. DO Managed Postgres), which
             # requires SSL regardless of DEBUG. Tie SSL to that fact, not DEBUG.
             ssl_require=env_bool('DB_SSL_REQUIRE', True),
@@ -286,14 +300,23 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Custom user model
 AUTH_USER_MODEL = 'api.CustomUser'
 
-# Email settings
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+# Email settings (env-driven; Gmail SMTP defaults for backward compatibility).
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = env_bool('EMAIL_USE_TLS', True)
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-DEFAULT_FROM_EMAIL = os.getenv('EMAIL_HOST_USER')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'webmaster@localhost')
+
+# Default to the console backend in development so flows like mandatory email
+# verification work without real SMTP credentials (messages print to stdout);
+# use real SMTP otherwise. Override explicitly with EMAIL_BACKEND.
+_default_email_backend = (
+    'django.core.mail.backends.console.EmailBackend'
+    if DEBUG
+    else 'django.core.mail.backends.smtp.EmailBackend'
+)
+EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', _default_email_backend)
 
 #  Logging settings
 # In containers/prod we log to stdout so the platform aggregates it. For local

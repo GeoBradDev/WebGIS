@@ -3,7 +3,7 @@
 from typing import List
 
 from django.shortcuts import get_object_or_404
-from ninja import Router
+from ninja import Query, Router
 
 from .. import services
 from ..models import DemoPolygon
@@ -20,7 +20,11 @@ def points_in_polygon(request, polygon_id: int):
 
 
 @router.get("/nearest-point", response={200: NearestPointOut, 404: Message}, tags=["Spatial"])
-def nearest_point(request, lng: float, lat: float):
+def nearest_point(
+    request,
+    lng: float = Query(..., ge=-180, le=180, description="Longitude (WGS84)"),
+    lat: float = Query(..., ge=-90, le=90, description="Latitude (WGS84)"),
+):
     """Nearest point to a location, with its distance in meters."""
     result = services.nearest_point(lng, lat)
     if result is None:
@@ -49,6 +53,11 @@ def union_all_polygons(request):
 
 
 @router.get("/buffer/{polygon_id}", response=GeometryResultOut, tags=["Spatial"])
-def buffer_polygon(request, polygon_id: int, buffer_meters: float):
+def buffer_polygon(
+    request,
+    polygon_id: int,
+    buffer_meters: float = Query(..., gt=0, description="Buffer distance in metres"),
+):
+    """Buffer a polygon outward by a distance in metres."""
     polygon = get_object_or_404(DemoPolygon, id=polygon_id)
     return {"geojson": services.buffer_polygon(polygon, buffer_meters)}

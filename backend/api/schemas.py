@@ -110,7 +110,7 @@ class PolygonAreaOut(Schema):
     id: int
     name: str
     area: float = Field(
-        ..., description="Area in the layer's SRID units (square degrees for EPSG:4326)"
+        ..., description="Area in square metres (computed via an equal-area projection)"
     )
 
 
