@@ -6,20 +6,20 @@
 .gps-marker {
   width: 14px;
   height: 14px;
-  background-color: #f0573d;
+  background-color: #2c6bb3;
   border: 2px solid #ffffff;
   border-radius: 50%;
-  box-shadow: 0 0 0 6px rgba(240, 87, 61, 0.22);
+  box-shadow: 0 0 0 6px rgba(44, 107, 179, 0.22);
   transform: translate(-50%, -50%);
 }
 
 /* Themed maplibre popup so it matches the app instead of the default white box. */
 .maplibregl-popup-content {
-  border-radius: 12px;
-  padding: 14px 16px;
-  box-shadow: 0 8px 28px rgba(20, 24, 38, 0.18);
-  border: 1px solid #e6e8ee;
-  font-family: "Inter", system-ui, sans-serif;
+  border-radius: 6px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 22px rgba(20, 24, 38, 0.16);
+  border: 1px solid #e1e5ea;
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
 }
 .maplibregl-popup-close-button {
   font-size: 18px;

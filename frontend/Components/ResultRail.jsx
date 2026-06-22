@@ -94,18 +94,18 @@ function ResultRail() {
                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSelect(card); } }}
                                 sx={{
                                     cursor: 'pointer',
-                                    bgcolor: 'background.paper',
-                                    borderRadius: 2.5,
+                                    bgcolor: selected ? tokens.accentSoft : 'background.paper',
+                                    borderRadius: 1,
                                     p: 1.75,
                                     border: '1px solid',
                                     borderColor: selected ? 'secondary.main' : tokens.hairline,
-                                    boxShadow: selected ? `0 0 0 3px ${tokens.coralSoft}` : '0 1px 2px rgba(20,24,38,0.04)',
+                                    boxShadow: 'none',
                                     transition: 'border-color .15s, box-shadow .15s, transform .15s',
                                     '&:hover': { borderColor: 'secondary.main', transform: 'translateY(-1px)' },
                                 }}
                             >
                                 <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.25 }}>
+                                    <Typography sx={{ fontFamily: '"IBM Plex Sans", sans-serif', fontWeight: 600, fontSize: '0.9rem', lineHeight: 1.3 }}>
                                         {card.title}
                                     </Typography>
                                     {card.code != null && card.code !== '' && (
@@ -116,15 +116,15 @@ function ResultRail() {
                                 </Stack>
 
                                 <Stack direction="row" spacing={0.75} sx={{ mt: 1, alignItems: 'baseline' }}>
-                                    <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: '1.35rem', fontVariantNumeric: 'tabular-nums', color: 'text.primary' }}>
+                                    <Typography sx={{ fontFamily: mono, fontWeight: 500, fontSize: '1.25rem', fontVariantNumeric: 'tabular-nums', color: 'text.primary', letterSpacing: '-0.01em' }}>
                                         {Number.isFinite(card.value) ? card.value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">{valueLabel?.toLowerCase()}</Typography>
                                 </Stack>
 
                                 {/* Relative data bar — value as a share of the largest result. */}
-                                <Box sx={{ mt: 1, height: 5, borderRadius: 999, bgcolor: tokens.surfaceAlt, overflow: 'hidden' }}>
-                                    <Box sx={{ width: `${pct}%`, height: '100%', borderRadius: 999, bgcolor: 'secondary.main' }} />
+                                <Box sx={{ mt: 1, height: 4, borderRadius: 0.5, bgcolor: tokens.surfaceAlt, overflow: 'hidden' }}>
+                                    <Box sx={{ width: `${pct}%`, height: '100%', borderRadius: 0.5, bgcolor: 'secondary.main' }} />
                                 </Box>
 
                                 {card.center && (

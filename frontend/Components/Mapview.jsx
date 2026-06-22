@@ -110,7 +110,7 @@ function HomeButton() {
                 backgroundColor: 'background.paper',
                 border: `1px solid ${tokens.hairline}`,
                 boxShadow: '0 2px 8px rgba(20,24,38,0.12)',
-                '&:hover': { backgroundColor: tokens.coralSoft, color: 'secondary.main' },
+                '&:hover': { backgroundColor: tokens.accentSoft, color: 'secondary.main' },
             }}
         >
             <HomeIcon fontSize="small" />
@@ -155,7 +155,7 @@ function GpsButton() {
                 backgroundColor: 'background.paper',
                 border: `1px solid ${tokens.hairline}`,
                 boxShadow: '0 2px 8px rgba(20,24,38,0.12)',
-                '&:hover': { backgroundColor: tokens.coralSoft, color: 'secondary.main' },
+                '&:hover': { backgroundColor: tokens.accentSoft, color: 'secondary.main' },
             }}
         >
             <GpsFixedIcon fontSize="small" />
@@ -279,7 +279,7 @@ function MapView() {
                         source={PRIMARY_LAYER.id}
                         type="line"
                         filter={['==', ['get', PRIMARY_LAYER.idField], selectedFeatureId]}
-                        paint={{ 'line-color': tokens.coral, 'line-width': 4, 'line-opacity': 0.95 }}
+                        paint={{ 'line-color': tokens.amber, 'line-width': 3.5, 'line-opacity': 1 }}
                     />
                 )}
 
@@ -293,7 +293,7 @@ function MapView() {
                         maxWidth="260px"
                     >
                         <div>
-                            <div style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 700, fontSize: 15, color: tokens.ink, marginBottom: 8 }}>
+                            <div style={{ fontFamily: '"IBM Plex Sans", sans-serif', fontWeight: 600, fontSize: 14, color: tokens.ink, marginBottom: 8 }}>
                                 {popupInfo.properties[popupInfo.config.popup.titleField] || 'N/A'}
                             </div>
                             {popupInfo.config.popup.rows.map((row) => (

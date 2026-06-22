@@ -17,7 +17,7 @@ import {
 } from '@mui/material';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
-import PlaceIcon from '@mui/icons-material/Place';
+import FilterCenterFocusIcon from '@mui/icons-material/FilterCenterFocus';
 import Sidebar from '../Components/Sidebar.jsx';
 import MapView from '../Components/Mapview.jsx';
 import ResultRail from '../Components/ResultRail.jsx';
@@ -128,18 +128,19 @@ function App() {
                     {/* Wordmark. "Parcel" is a placeholder brand for forkers to swap. */}
                     <Stack direction="row" spacing={1.25} sx={{flexShrink: 0, alignItems: 'center'}}>
                         <Box sx={{
-                            width: 34, height: 34, borderRadius: 2,
-                            bgcolor: 'secondary.main', display: 'flex',
-                            alignItems: 'center', justifyContent: 'center',
+                            width: 32, height: 32, borderRadius: 1,
+                            bgcolor: 'rgba(255,255,255,0.06)',
+                            border: '1px solid rgba(255,255,255,0.18)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
                         }}>
-                            <PlaceIcon sx={{color: '#fff', fontSize: 20}}/>
+                            <FilterCenterFocusIcon sx={{color: 'secondary.light', fontSize: 18}}/>
                         </Box>
                         <Box sx={{lineHeight: 1}}>
-                            <Typography sx={{fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: '1.15rem', color: '#fff', letterSpacing: '-0.01em'}}>
+                            <Typography sx={{fontFamily: '"IBM Plex Sans", sans-serif', fontWeight: 600, fontSize: '1.05rem', color: '#fff', letterSpacing: 0}}>
                                 Parcel
                             </Typography>
-                            <Typography variant="overline" sx={{color: 'rgba(255,255,255,0.55)', display: {xs: 'none', sm: 'block'}}}>
-                                WebGIS template
+                            <Typography variant="overline" sx={{color: 'rgba(255,255,255,0.5)', display: {xs: 'none', sm: 'block'}}}>
+                                WebGIS Platform
                             </Typography>
                         </Box>
                     </Stack>

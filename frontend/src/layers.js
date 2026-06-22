@@ -24,7 +24,7 @@ export const LAYER_CONFIGS = [
         primary: true, // drives the attribute table, dashboard, and sidebar filters
         visible: true,
         source: { kind: 'geojson-url', url: MUNI_GEOJSON_URL },
-        style: { lineColor: '#232347', fillColor: '#232347', fillOpacity: 0.08, lineWidth: 1.5 },
+        style: { lineColor: '#414a59', fillColor: '#414a59', fillOpacity: 0.07, lineWidth: 1.25 },
         idField: 'OBJECTID',
         // Click popup: a title plus labelled rows. `format: 'number2'` -> 2 d.p.
         popup: {
@@ -66,7 +66,7 @@ export const LAYER_CONFIGS = [
         name: 'Demo Polygons (backend API)',
         visible: false,
         source: { kind: 'backend', endpoint: '/polygons' },
-        style: { lineColor: '#1f9d78', fillColor: '#1f9d78', fillOpacity: 0.15, lineWidth: 2 },
+        style: { lineColor: '#2e8b73', fillColor: '#2e8b73', fillOpacity: 0.14, lineWidth: 1.5 },
         idField: 'id',
         popup: {
             titleField: 'name',

@@ -36,7 +36,7 @@ function StatTile({ label, value, unit, sub }) {
         <Paper variant="outlined" sx={{ p: 2.25, flex: 1, minWidth: 0 }}>
             <Typography variant="overline" color="text.secondary">{label}</Typography>
             <Stack direction="row" spacing={0.75} sx={{ mt: 0.5, alignItems: 'baseline' }}>
-                <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: '1.9rem', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                <Typography sx={{ fontFamily: mono, fontWeight: 500, fontSize: '1.75rem', lineHeight: 1, fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em' }}>
                     {value}
                 </Typography>
                 {unit && <Typography variant="body2" color="text.secondary">{unit}</Typography>}
@@ -77,7 +77,7 @@ ChartCard.propTypes = {
 const axisProps = { tick: { fontSize: 11, fill: tokens.slate }, stroke: tokens.hairline };
 const tooltipStyle = {
     contentStyle: { borderRadius: 10, border: `1px solid ${tokens.hairline}`, fontSize: 12, fontFamily: 'Inter, sans-serif' },
-    cursor: { fill: 'rgba(35,35,71,0.05)' },
+    cursor: { fill: 'rgba(28,33,40,0.05)' },
 };
 
 const Dashboard = ({ data }) => {
@@ -127,7 +127,7 @@ const Dashboard = ({ data }) => {
                         <XAxis dataKey={categoryField} angle={-35} textAnchor="end" height={70} interval={0} {...axisProps} />
                         <YAxis {...axisProps} />
                         <Tooltip {...tooltipStyle} />
-                        <Bar dataKey={valueField} name={valueLabel} fill={tokens.coral} radius={[5, 5, 0, 0]} maxBarSize={42} />
+                        <Bar dataKey={valueField} name={valueLabel} fill={tokens.accent} radius={[2, 2, 0, 0]} maxBarSize={40} />
                     </BarChart>
                 </ChartCard>
 
@@ -137,7 +137,7 @@ const Dashboard = ({ data }) => {
                         <XAxis dataKey="label" {...axisProps} interval={0} angle={-20} textAnchor="end" height={48} />
                         <YAxis allowDecimals={false} {...axisProps} />
                         <Tooltip {...tooltipStyle} />
-                        <Bar dataKey="count" name="places" fill={tokens.indigo} radius={[5, 5, 0, 0]} maxBarSize={48} />
+                        <Bar dataKey="count" name="places" fill={tokens.slate} radius={[2, 2, 0, 0]} maxBarSize={46} />
                     </BarChart>
                 </ChartCard>
             </Box>
