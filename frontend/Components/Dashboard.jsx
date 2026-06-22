@@ -35,7 +35,7 @@ function StatTile({ label, value, unit, sub }) {
     return (
         <Paper variant="outlined" sx={{ p: 2.25, flex: 1, minWidth: 0 }}>
             <Typography variant="overline" color="text.secondary">{label}</Typography>
-            <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ mt: 0.5 }}>
+            <Stack direction="row" spacing={0.75} sx={{ mt: 0.5, alignItems: 'baseline' }}>
                 <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: '1.9rem', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                     {value}
                 </Typography>
@@ -59,7 +59,7 @@ StatTile.propTypes = {
 function ChartCard({ title, hint, height = 300, children }) {
     return (
         <Paper variant="outlined" sx={{ p: 2.5, height: '100%' }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 2 }}>
+            <Stack direction="row" sx={{ mb: 2, justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <Typography variant="h6">{title}</Typography>
                 {hint && <Typography variant="overline" color="text.secondary">{hint}</Typography>}
             </Stack>

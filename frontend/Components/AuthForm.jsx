@@ -13,7 +13,7 @@ const AuthForm = ({openForgotPassword, onLogin, onSignup, onGoogleLogin}) => {
     const {
         handleSubmit,
         register,
-        watch,
+        getValues,
         formState: {errors},
     } = useForm();
 
@@ -105,7 +105,7 @@ const AuthForm = ({openForgotPassword, onLogin, onSignup, onGoogleLogin}) => {
                     margin="normal"
                     {...register("confirmPassword", {
                         required: "Confirm your password",
-                        validate: (value) => value === watch("password") || "Passwords do not match"
+                        validate: (value) => value === getValues("password") || "Passwords do not match"
                     })}
                     error={!!errors.confirmPassword}
                     helperText={errors.confirmPassword?.message}

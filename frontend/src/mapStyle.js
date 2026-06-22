@@ -8,7 +8,7 @@
 // PMTiles requires the `pmtiles://` protocol to be registered on maplibre-gl
 // before a map using this style mounts (see Mapview.jsx).
 
-import { layers, namedTheme } from 'protomaps-themes-base';
+import { layers, namedFlavor } from '@protomaps/basemaps';
 
 const env = import.meta.env;
 
@@ -43,7 +43,7 @@ function pmtilesVectorStyle() {
                     '<a href="https://protomaps.com">Protomaps</a> &copy; <a href="https://openstreetmap.org">OpenStreetMap</a>',
             },
         },
-        layers: layers('protomaps', namedTheme('light'), { lang: 'en' }),
+        layers: layers('protomaps', namedFlavor('light'), { lang: 'en' }),
     };
     if (SPRITE_URL) style.sprite = SPRITE_URL;
     return style;

@@ -64,7 +64,7 @@ function ResultRail() {
         >
             <Box sx={{ px: 2.5, pt: 2.25, pb: 1.5, borderBottom: `1px solid ${tokens.hairline}` }}>
                 <Typography variant="overline" color="text.secondary">Results</Typography>
-                <Stack direction="row" alignItems="baseline" spacing={1}>
+                <Stack direction="row" spacing={1} sx={{ alignItems: 'baseline' }}>
                     <Typography variant="h5" sx={{ fontVariantNumeric: 'tabular-nums' }}>
                         {items.length}
                     </Typography>
@@ -104,7 +104,7 @@ function ResultRail() {
                                     '&:hover': { borderColor: 'secondary.main', transform: 'translateY(-1px)' },
                                 }}
                             >
-                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                                <Stack direction="row" spacing={1} sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                     <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 700, fontSize: '0.95rem', lineHeight: 1.25 }}>
                                         {card.title}
                                     </Typography>
@@ -115,7 +115,7 @@ function ResultRail() {
                                     )}
                                 </Stack>
 
-                                <Stack direction="row" alignItems="baseline" spacing={0.75} sx={{ mt: 1 }}>
+                                <Stack direction="row" spacing={0.75} sx={{ mt: 1, alignItems: 'baseline' }}>
                                     <Typography sx={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: '1.35rem', fontVariantNumeric: 'tabular-nums', color: 'text.primary' }}>
                                         {Number.isFinite(card.value) ? card.value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—'}
                                     </Typography>
@@ -128,7 +128,7 @@ function ResultRail() {
                                 </Box>
 
                                 {card.center && (
-                                    <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 1.25, color: 'text.secondary' }}>
+                                    <Stack direction="row" spacing={0.5} sx={{ mt: 1.25, color: 'text.secondary', alignItems: 'center' }}>
                                         <PlaceOutlinedIcon sx={{ fontSize: 13 }} />
                                         <Typography sx={{ fontFamily: mono, fontSize: '0.68rem' }}>
                                             {card.center[0].toFixed(3)}, {card.center[1].toFixed(3)}

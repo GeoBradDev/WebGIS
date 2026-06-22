@@ -126,7 +126,7 @@ function App() {
             <AppBar position="static">
                 <Toolbar sx={{gap: 2, minHeight: {xs: 60, sm: 64}}}>
                     {/* Wordmark. "Parcel" is a placeholder brand for forkers to swap. */}
-                    <Stack direction="row" alignItems="center" spacing={1.25} sx={{flexShrink: 0}}>
+                    <Stack direction="row" spacing={1.25} sx={{flexShrink: 0, alignItems: 'center'}}>
                         <Box sx={{
                             width: 34, height: 34, borderRadius: 2,
                             bgcolor: 'secondary.main', display: 'flex',

@@ -206,7 +206,7 @@ function Sidebar({ setMapCenter }) {
                                         value={filters.rangeMin}
                                         onChange={(e) => setRange('rangeMin', e.target.value)}
                                         placeholder="0"
-                                        inputProps={{ step: "0.01" }}
+                                        slotProps={{ htmlInput: { step: "0.01" } }}
                                     />
                                     <TextField
                                         label={`Max ${PRIMARY_LAYER.rangeFilter.label}`}
@@ -216,7 +216,7 @@ function Sidebar({ setMapCenter }) {
                                         value={filters.rangeMax}
                                         onChange={(e) => setRange('rangeMax', e.target.value)}
                                         placeholder="100"
-                                        inputProps={{ step: "0.01" }}
+                                        slotProps={{ htmlInput: { step: "0.01" } }}
                                     />
                                 </Box>
                             )}

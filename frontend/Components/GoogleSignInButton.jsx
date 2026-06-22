@@ -7,9 +7,12 @@ import { initGoogleSignIn } from '../src/googleSignIn';
 // parent's onGoogleLogin (which calls the store + shows the snackbar/closes).
 const GoogleSignInButton = ({ onGoogleLogin }) => {
     const containerRef = useRef(null);
-    // Keep the latest callback in a ref so the init effect runs only once.
+    // Keep the latest callback in a ref so the init effect runs only once. The
+    // ref is updated in an effect (after render), not during render.
     const cbRef = useRef(onGoogleLogin);
-    cbRef.current = onGoogleLogin;
+    useEffect(() => {
+        cbRef.current = onGoogleLogin;
+    });
 
     useEffect(() => {
         let cancelled = false;

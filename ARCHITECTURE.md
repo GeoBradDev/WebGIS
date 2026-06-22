@@ -126,7 +126,7 @@ or package linkage between the three. Each has its own dependencies and tooling.
   handles popups via `interactiveLayerIds` + click, and converts the store's Leaflet-style
   `[lat, lng]` to maplibre `[lng, lat]` only at the map boundary.
 - **Style builder.** `src/mapStyle.js` assembles the style from env: a PMTiles vector basemap
-  (Protomaps schema via `protomaps-themes-base`) when `VITE_BASEMAP_PMTILES_URL` is set,
+  (Protomaps schema via `@protomaps/basemaps`) when `VITE_BASEMAP_PMTILES_URL` is set,
   otherwise raster OpenStreetMap so the map works out of the box. A `BASEMAPS` registry drives
   the in-map basemap switcher (`activeBasemap` in the store).
 - **State.** Two Zustand stores: `src/store/useStore.js` (map/UI/GeoJSON + filtering) and
