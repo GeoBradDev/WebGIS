@@ -8,7 +8,7 @@ monorepo and ready to run in containers or deploy to DigitalOcean App Platform.
 
 | Layer | Tech |
 |-------|------|
-| Backend | Django 5.2, Django Ninja, GeoDjango, PostGIS, django-allauth (headless), Celery (optional) |
+| Backend | Django 6.0, Django Ninja, GeoDjango, PostGIS, django-allauth (headless), Celery (optional) |
 | Web | React 19, Vite, MapLibre GL JS, PMTiles, Material UI, Zustand, react-router 7 |
 | Mobile | Expo 53, React Native, expo-router, react-native-maps, Zustand |
 | Infra | Docker Compose (local), DigitalOcean App Platform + Managed Postgres + Spaces (prod) |
@@ -49,6 +49,11 @@ docker compose up --build
 - API + docs: http://localhost:8000/api/docs
 - Admin: http://localhost:8000/admin/  (`docker compose exec backend python manage.py createsuperuser`)
 
+The demo geometry models (point/polygon/line) are registered with GeoDjango's
+`GISModelAdmin`, so the admin edit pages render an interactive map widget. To seed a few
+sample polygons, run `docker compose exec backend python manage.py import_demo_features`
+(a `LayerMapping` example that loads `backend/api/sample_data/demo_polygons.geojson`).
+
 If host port 5432 is in use: `POSTGRES_HOST_PORT=5433 docker compose up --build`.
 For async email via Celery: `docker compose --profile celery up`.
 
@@ -87,7 +92,10 @@ npm start                      # Expo dev server; needs GOOGLE_MAPS_API_KEY in m
 All configuration is environment-driven. Copy each `.env.example` to `.env` and edit:
 
 - `backend/.env.example` — `SECRET_KEY`, `DEBUG`, `DATABASE_URL` or `POSTGRES_*`,
-  `FRONTEND_URL`, `ALLOWED_HOSTS`, `EMAIL_*`, optional `REDIS_URL`.
+  `FRONTEND_URL`, `ALLOWED_HOSTS`, `EMAIL_*`, optional `REDIS_URL`. Email is env-driven and
+  defaults to Django's **console backend when `DEBUG=True`**, so signup/verification emails
+  print to stdout in local dev with no SMTP credentials; set `EMAIL_BACKEND` + `EMAIL_*` for
+  real delivery.
 - `frontend/.env.example` — `VITE_API_URL`, `VITE_MUNI_GEOJSON_URL`, and the PMTiles vars
   (`VITE_BASEMAP_PMTILES_URL`, `VITE_GLYPHS_URL`). `VITE_*` are inlined at **build** time.
 

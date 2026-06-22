@@ -36,7 +36,7 @@ Their independent histories were dropped in the merge; the working trees were pr
 
 | Component | Stack | Role |
 |-----------|-------|------|
-| `backend/` | Django 5.2, Django Ninja, GeoDjango, PostGIS, django-allauth (headless), Celery (optional) | REST API, auth, spatial data |
+| `backend/` | Django 6.0, Django Ninja, GeoDjango, PostGIS, django-allauth (headless), Celery (optional) | REST API, auth, spatial data |
 | `frontend/` | React 19, Vite, MapLibre GL JS, PMTiles, MUI, Zustand, react-router 7 | Web map UI (plain JS, no TS) |
 | `mobile/` | Expo 53, React Native, expo-router, react-native-maps, Zustand | Mobile client (TypeScript) |
 
@@ -68,8 +68,10 @@ or package linkage between the three. Each has its own dependencies and tooling.
   `index.html` as the SPA fallback for client-side routes (`/verify-email/:key`,
   `/reset-password/...`).
 - **Auth** is django-allauth **headless**: the frontend calls `/_allauth/app/v1/auth/...`
-  and carries an `X-Session-Token` (no cookies/CSRF on the API; `NinjaAPI(csrf=False)`).
-  Email verification links are built from `FRONTEND_URL`.
+  and carries an `X-Session-Token` (no cookies on the API). Django Ninja 1.6 dropped the
+  `csrf` kwarg; a token API with no session auth is CSRF-exempt by default, so the API needs
+  no special handling. `CsrfViewMiddleware` is enabled in `MIDDLEWARE` to protect the one
+  cookie-auth surface, the Django admin. Email verification links are built from `FRONTEND_URL`.
 - **Map data** is split: the attribute-rich municipalities overlay is **GeoJSON** fetched
   from `VITE_MUNI_GEOJSON_URL` and filtered client-side; the **basemap** is a PMTiles vector
   archive (Protomaps schema) loaded by MapLibre via the `pmtiles://` protocol over HTTP Range
@@ -82,27 +84,40 @@ or package linkage between the three. Each has its own dependencies and tooling.
   joins/nearest/geometry ops, `gdal`). Thin views call `api/services.py` (ORM + GEOS/GDAL);
   schemas in `api/schemas.py`. Conventions: `ModelSchema` In/Out/Patch with `resolve_*`,
   `get_object_or_404`, `(status, data)` tuples, `@paginate`d lists (`{items, count}`), GeoJSON
-  as objects (not strings), `InvalidGeometry → 422`, GDAL paths confined to
-  `settings.GDAL_FILE_ROOT`. Routes: `/api/{points,polygons,lines}/…`, `/api/spatial/…`,
+  as objects (not strings), numeric/coordinate query params bounded with `Query(...)`
+  constraints, `InvalidGeometry → 422`, GDAL paths confined to `settings.GDAL_FILE_ROOT`. Routes: `/api/{points,polygons,lines}/…`, `/api/spatial/…`,
   `/api/gdal/…`; `WebGIS/urls.py` mounts `/api/` and a DB-free `/healthz`.
-- **Geospatial.** Models (`api/models.py`) use GeoDjango fields (`srid=4326`); endpoints use
-  PostGIS spatial lookups and GIS DB functions, plus direct `osgeo` (GDAL/OGR) calls for the
-  raster/vector endpoints. Note: `GET /api/polygons` returns bare geometry with no attributes,
-  so it is not a drop-in replacement for the attribute-rich web overlay.
-- **PostGIS bootstrap.** Migration `api/0002` runs `CreateExtension('postgis')` before any
-  geometry column, so a fresh DB (DO Managed Postgres, where PostGIS is available but not
-  enabled) migrates cleanly.
-- **Custom user.** `api.CustomUser` authenticates by **email** (lowercased), via a custom
-  manager doing case-insensitive lookup.
-- **Async email.** `AsyncAccountAdapter` dispatches allauth emails through a Celery task
-  (`send_email_async`). Celery activates only when `REDIS_URL` is set; otherwise tasks run
-  eagerly inline.
+- **Geospatial.** Models (`api/models.py`) use GeoDjango fields (`srid=4326`). `DemoPoint.geom`
+  is a PostGIS **geography** column so `dwithin`/`distance` run in metres on the spheroid and stay
+  index-assisted (point-in-polygon uses `coveredby`, which geography supports). `DemoPolygon`/
+  `DemoLine` stay geometry. Measurements avoid the degrees-vs-metres trap: **area** reprojects to a
+  global equal-area CRS (EPSG:6933) and **buffer** to a local azimuthal-equidistant CRS, both via
+  `Transform`. Centroid, simplification (`ST_SimplifyPreserveTopology`), and union run **server-side**
+  through GIS DB functions/aggregates rather than per-row Python. The raster/vector endpoints call
+  `osgeo` (GDAL/OGR) directly, forcing traditional `(lon, lat)` axis order (GDAL 3 honours authority
+  order) and reading pixels via `ReadRaster` (no NumPy/`gdal_array` bridge needed). The demo models
+  are registered with `GISModelAdmin` (map widget in the admin), and `manage.py import_demo_features`
+  is a `LayerMapping` example that loads `api/sample_data/demo_polygons.geojson`. Note: `GET
+  /api/polygons` returns bare geometry with no attributes, so it is not a drop-in replacement for the
+  attribute-rich web overlay.
+- **PostGIS bootstrap.** Migration `api/0004_enable_postgis` runs `CreateExtension('postgis')` with
+  `run_before` set ahead of `api/0002` (the first geometry columns), so a fresh DB (DO Managed
+  Postgres, where PostGIS is available but not enabled) migrates cleanly.
+- **Custom user.** `api.CustomUser` authenticates by **email** (`USERNAME_FIELD`, stored
+  lowercased). The custom manager is email-first: `create_user`/`create_superuser` key on email
+  (normalising it) and `get_by_natural_key` does case-insensitive lookup.
+- **Async email.** `AsyncAccountAdapter` dispatches allauth emails (preserving the HTML
+  alternative) through a Celery task (`send_email_async`). Celery activates only when `REDIS_URL`
+  is set; otherwise tasks run eagerly inline.
 - **Config is env-driven** (`WebGIS/settings.py`; helpers `env_bool`/`env_list`). Prod prefers
-  a single `DATABASE_URL` (via `dj-database-url`, engine forced back to PostGIS), falling back
-  to discrete `POSTGRES_*` locally. Security is `DEBUG`-gated: with `DEBUG=False`, CORS is
-  restricted to `FRONTEND_URL`, the `SECURE_*`/proxy-SSL/HSTS settings turn on (App Platform
-  terminates TLS via `X-Forwarded-Proto`), and logs go to stdout. Full var list in
-  `backend/.env.example`.
+  a single `DATABASE_URL` (via `dj-database-url`, engine forced back to PostGIS, with
+  `conn_health_checks`), falling back to discrete `POSTGRES_*` locally. Security is `DEBUG`-gated:
+  with `DEBUG=False`, CORS is restricted to `FRONTEND_URL`, the `SECURE_*`/proxy-SSL/HSTS settings
+  turn on (App Platform terminates TLS via `X-Forwarded-Proto`), logs go to stdout, and a missing
+  `SECRET_KEY` is a fail-fast error (an insecure default applies only in dev). Email is env-driven
+  and defaults to the **console backend in dev** so flows work without SMTP credentials. Serving the
+  allauth headless OpenAPI spec (`HEADLESS_SERVE_SPECIFICATION`) requires the
+  `django-allauth[headless-spec]` extra. Full var list in `backend/.env.example`.
 
 ## 5. Frontend internals (`frontend/`)
 
@@ -136,7 +151,7 @@ or package linkage between the three. Each has its own dependencies and tooling.
   `backend` (built image, migrates on boot via `entrypoint.sh`, gated by `RUN_MIGRATIONS`),
   `frontend` (Vite dev server), optional `redis`/`celery` profile. `POSTGRES_HOST_PORT`
   overrides the published DB port if 5432 is taken.
-- **Backend image** — `backend/Dockerfile`, multi-stage on `python:3.12-slim-bookworm`. GDAL is
+- **Backend image** — `backend/Dockerfile`, multi-stage on `python:3.14-slim-bookworm`. GDAL is
   installed from the distro and the Python binding is pinned to `gdal-config --version`
   (container runs GDAL 3.6.2). `requirements.txt` keeps its own `GDAL==3.4.1` pin for the
   maintainer's host install, which the Dockerfile strips. collectstatic runs at build
@@ -160,10 +175,10 @@ or package linkage between the three. Each has its own dependencies and tooling.
 ## 8. Key decisions & trade-offs
 
 - **GDAL version floats to the container distro (3.6.2), not the `3.4.1` pin.** A stock base
-  image can't provide both GDAL 3.4.1 and a Python new enough for Django 5.2 + numpy 2.3
-  (Ubuntu 22.04 has GDAL 3.4.1 but Python 3.10; the osgeo GDAL 3.4.1 image is Python 3.8). The
-  Dockerfile installs the distro GDAL and pins the binding to it, keeping host and container
-  independently buildable.
+  image can't provide both GDAL 3.4.1 and a Python new enough for the current stack (Django 6.0 +
+  numpy 2.4 on Python 3.14; Ubuntu 22.04 has GDAL 3.4.1 but Python 3.10, and the osgeo GDAL 3.4.1
+  image is Python 3.8). The Dockerfile installs the distro GDAL and pins the binding to it, keeping
+  host and container independently buildable.
 - **Split map data model.** Vector tiles (PMTiles) are great for basemaps but the interactive,
   filterable, attribute-rich municipalities layer is small and is better served as GeoJSON with
   client-side filtering. The two coexist.
@@ -179,11 +194,10 @@ or package linkage between the three. Each has its own dependencies and tooling.
   `GDAL_FILE_ROOT` and now carry a security note (in `backend/api/routers/gdal.py`, `backend/ReadMe.md`,
   and the root `README.md`); lock down or disable them if they process untrusted input until a
   3.13 base is viable.
-- **`numpy` is a transitive GDAL requirement, not unused.** It is not imported directly, but GDAL's
-  `ReadAsArray` (`api/services.pixel_value`) needs it and the Dockerfile installs it before the GDAL
-  binding so `gdal_array` builds. The previously-listed unused deps (`nltk`, `pillow`,
-  `terminaltables`, `pip-check`, `pip-review`, plus the nltk-only `joblib`/`regex`/`tqdm`) have been
-  removed from `requirements.txt`.
+- **`numpy` is a transitive dependency, not unused.** No application code imports it directly; it
+  comes in via the geo stack (e.g. `shapely`). The GDAL raster endpoint reads pixels with
+  `ReadRaster` (core bindings) rather than `ReadAsArray`, so it does **not** depend on the optional
+  `gdal_array`/NumPy C bridge that isn't always built.
 - **Resolved.** The subproject READMEs (`backend/ReadMe.md`, `frontend/README.md`, `mobile/README.md`)
   have been rewritten to match the monorepo and current stacks. Backend tests now exist
   (`backend/api/tests.py`, run with `pytest` via `pytest-django`/`pytest.ini`). The web layer system
