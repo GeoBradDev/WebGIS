@@ -70,6 +70,11 @@ const useStore = create((set, get) => ({
     isTableCollapsed: true,
     toggleTable: () => set((state) => ({isTableCollapsed: !state.isTableCollapsed})),
 
+    // The primary-layer feature currently selected from the result rail. Drives
+    // the map highlight outline and the active card state (map<->card sync).
+    selectedFeatureId: null,
+    setSelectedFeatureId: (id) => set({selectedFeatureId: id}),
+
     aboutOpen: false, // State for dialog
 
     // Primary layer's data, mirrored here for the table/dashboard/sidebar.

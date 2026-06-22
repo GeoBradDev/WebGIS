@@ -18,6 +18,7 @@ import GpsFixedIcon from '@mui/icons-material/GpsFixed';
 import useStore from '../src/store/useStore';
 import { buildMapStyle, BASEMAPS } from '../src/mapStyle';
 import { PRIMARY_LAYER, LAYER_CONFIGS, formatPopupValue } from '../src/layers';
+import { tokens, mono } from '../src/theme';
 import CollapsibleTable from './CollapsableTable.jsx';
 
 // Register the pmtiles:// protocol once, at module load. Doing this at module
@@ -99,18 +100,20 @@ function HomeButton() {
             onClick={handleHomeClick}
             sx={{
                 position: 'absolute',
-                top: 100,
-                left: 9,
+                top: 102,
+                left: 10,
                 zIndex: 1000,
-                width: '36px',
-                height: '36px',
-                padding: '4px',
-                backgroundColor: 'white',
-                border: 'grey 1px solid',
-                '&:hover': { backgroundColor: '#f0f0f0' },
+                width: 34,
+                height: 34,
+                borderRadius: 2,
+                color: 'primary.main',
+                backgroundColor: 'background.paper',
+                border: `1px solid ${tokens.hairline}`,
+                boxShadow: '0 2px 8px rgba(20,24,38,0.12)',
+                '&:hover': { backgroundColor: tokens.coralSoft, color: 'secondary.main' },
             }}
         >
-            <HomeIcon />
+            <HomeIcon fontSize="small" />
         </IconButton>
     );
 }
@@ -142,18 +145,20 @@ function GpsButton() {
             onClick={handleGpsClick}
             sx={{
                 position: 'absolute',
-                top: 145,
-                left: 9,
+                top: 144,
+                left: 10,
                 zIndex: 1000,
-                width: '36px',
-                height: '36px',
-                padding: '4px',
-                backgroundColor: 'white',
-                border: 'grey 1px solid',
-                '&:hover': { backgroundColor: '#f0f0f0' },
+                width: 34,
+                height: 34,
+                borderRadius: 2,
+                color: 'primary.main',
+                backgroundColor: 'background.paper',
+                border: `1px solid ${tokens.hairline}`,
+                boxShadow: '0 2px 8px rgba(20,24,38,0.12)',
+                '&:hover': { backgroundColor: tokens.coralSoft, color: 'secondary.main' },
             }}
         >
-            <GpsFixedIcon />
+            <GpsFixedIcon fontSize="small" />
         </IconButton>
     );
 }
@@ -197,6 +202,7 @@ function MapView() {
     const geojsonData = useStore((state) => state.geojsonData);
     const filters = useStore((state) => state.filters);
     const activeBasemap = useStore((state) => state.activeBasemap);
+    const selectedFeatureId = useStore((state) => state.selectedFeatureId);
 
     const [popupInfo, setPopupInfo] = useState(null);
 
@@ -214,6 +220,8 @@ function MapView() {
 
     // Every visible layer that has data; the primary layer renders filtered.
     const visibleLayers = Object.values(layers).filter((l) => l.visible && l.data);
+    const primaryLayerState = layers[PRIMARY_LAYER.id];
+    const primaryVisible = Boolean(primaryLayerState?.visible && primaryLayerState?.data);
     const dataForLayer = (layer) =>
         layer.id === PRIMARY_LAYER.id ? filteredPrimary : layer.data;
     const interactiveLayerIds = visibleLayers.map((l) => fillLayerId(l.id));
@@ -264,6 +272,17 @@ function MapView() {
                     <LayerSource key={layer.id} layer={layer} data={dataForLayer(layer)} />
                 ))}
 
+                {/* Coral highlight outline for the feature selected in the result rail. */}
+                {primaryVisible && selectedFeatureId != null && (
+                    <Layer
+                        id="primary-highlight"
+                        source={PRIMARY_LAYER.id}
+                        type="line"
+                        filter={['==', ['get', PRIMARY_LAYER.idField], selectedFeatureId]}
+                        paint={{ 'line-color': tokens.coral, 'line-width': 4, 'line-opacity': 0.95 }}
+                    />
+                )}
+
                 {popupInfo?.config?.popup && (
                     <Popup
                         longitude={popupInfo.longitude}
@@ -271,16 +290,19 @@ function MapView() {
                         anchor="bottom"
                         onClose={() => setPopupInfo(null)}
                         closeOnClick={false}
+                        maxWidth="260px"
                     >
-                        <div style={{ fontFamily: 'Arial, sans-serif' }}>
-                            <h4 style={{ margin: '0 0 8px 0', color: '#1976d2' }}>
+                        <div>
+                            <div style={{ fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 700, fontSize: 15, color: tokens.ink, marginBottom: 8 }}>
                                 {popupInfo.properties[popupInfo.config.popup.titleField] || 'N/A'}
-                            </h4>
+                            </div>
                             {popupInfo.config.popup.rows.map((row) => (
-                                <p key={row.field} style={{ margin: '4px 0' }}>
-                                    <strong>{row.label}:</strong>{' '}
-                                    {formatPopupValue(popupInfo.properties[row.field], row.format)}
-                                </p>
+                                <div key={row.field} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, fontSize: 12.5, padding: '3px 0', borderTop: `1px solid ${tokens.hairline}` }}>
+                                    <span style={{ color: tokens.slate }}>{row.label}</span>
+                                    <span style={{ fontFamily: mono, color: tokens.ink, fontWeight: 500 }}>
+                                        {formatPopupValue(popupInfo.properties[row.field], row.format)}
+                                    </span>
+                                </div>
                             ))}
                         </div>
                     </Popup>

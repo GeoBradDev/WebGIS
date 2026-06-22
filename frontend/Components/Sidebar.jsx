@@ -76,8 +76,8 @@ function Sidebar({ setMapCenter }) {
 
                 {!isCollapsed && (
                     <Box sx={{ width: '100%' }}>
-                        <Box sx={{ marginTop: 2 }}>
-                            <Typography variant="h6">Search Location</Typography>
+                        <Box sx={{ marginTop: 1 }}>
+                            <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1 }}>Search</Typography>
                             <Box
                                 component="form"
                                 onSubmit={(e) => {
@@ -113,7 +113,7 @@ function Sidebar({ setMapCenter }) {
                                 <Button
                                     type="submit" // Set the button type to "submit"
                                     variant="contained"
-                                    color="primary"
+                                    color="secondary"
                                     fullWidth
                                 >
                                     Search
@@ -125,7 +125,7 @@ function Sidebar({ setMapCenter }) {
                         
                         {/* Layer Control Section */}
                         <Box sx={{ marginBottom: 2 }}>
-                            <Typography variant="h6" sx={{ marginBottom: 2 }}>Map Layers</Typography>
+                            <Typography variant="overline" color="text.secondary" sx={{ display: 'block', marginBottom: 1.5 }}>Layers</Typography>
                             {Object.values(layers).map((layer) => (
                                 <FormControlLabel
                                     key={layer.id}
@@ -163,7 +163,7 @@ function Sidebar({ setMapCenter }) {
                         
                         <Divider sx={{ marginY: 2 }} />
                         
-                        <Typography variant="h6">Query Attribute Data</Typography>
+                        <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>Filter</Typography>
                         <Box
                             component="form"
                             onSubmit={handleFormSubmit}
@@ -222,14 +222,15 @@ function Sidebar({ setMapCenter }) {
                             )}
 
                             <Box sx={{ display: 'flex', flexDirection: 'row', gap: 1 }}>
-                                <Button type="submit" variant="contained" color="primary">
+                                <Button type="submit" variant="contained" color="secondary" fullWidth>
                                     Apply Filters
                                 </Button>
                                 <Button
                                     type="button"
-                                    variant="contained"
-                                    color="secondary"
+                                    variant="text"
+                                    color="inherit"
                                     onClick={handleResetFilters}
+                                    sx={{ color: 'text.secondary' }}
                                 >
                                     Reset
                                 </Button>

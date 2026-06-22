@@ -5,21 +5,28 @@ import {
     Typography,
     Button,
     Box,
+    Stack,
     DialogActions,
     DialogContent,
     Dialog,
     Snackbar,
-    Alert, Switch, Divider, DialogTitle,
+    Alert,
+    ToggleButton,
+    ToggleButtonGroup,
+    DialogTitle,
 } from '@mui/material';
+import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
+import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
+import PlaceIcon from '@mui/icons-material/Place';
 import Sidebar from '../Components/Sidebar.jsx';
 import MapView from '../Components/Mapview.jsx';
+import ResultRail from '../Components/ResultRail.jsx';
 import AuthForm from "../Components/AuthForm.jsx";
 import ForgotPasswordForm from "../Components/ForgotPasswordForm.jsx";
 import Dashboard from '../Components/Dashboard.jsx';
 import useStore from '../src/store/useStore';
 import {useAuthStore} from './store/useAuthStore.js';
 import Footer from "../Components/Footer.jsx";
-import logo from './assets/geobradlogo.png';
 import {SNACKBAR_MESSAGES, SNACKBAR_SEVERITIES} from '../constants/snackbarMessages';
 import ReusableModal from "../Components/ReusableModal.jsx";
 import TermsModal from "../Components/TermsModal.jsx";
@@ -117,71 +124,71 @@ function App() {
         <Box sx={{display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden'}}>
             {/* Navbar */}
             <AppBar position="static">
-                <Toolbar>
-                    <Box
-                        component="img"
-                        sx={{height: 55, marginRight: 1}}
-                        alt="Logo"
-                        src={logo}
-                    />
-                    <Typography variant="h6" sx={{flexGrow: 1}}>
-                        WebGIS Application Template
-                    </Typography>
-                    <Box display="flex" alignItems="center" sx={{mx: 2}}>
-                        <Typography
-                            sx={{color: currentView === 'dashboard' ? 'white' : 'grey.500', mr: 1}}
-                        >
-                            Dashboard
-                        </Typography>
-                        <Switch
-                            checked={currentView === 'dashboard'}
-                            onChange={toggleView}
-                            color="default"
-                        />
-                        <Typography
-                            sx={{color: currentView === 'map' ? 'white' : 'grey.500', ml: 1}}
-                        >
-                            Map
-                        </Typography>
-                    </Box>
-                    <Divider
-                        orientation="vertical"
-                        flexItem
-                        sx={{
-                            mx: 2,
-                            height: '40px',
-                            borderRightWidth: 2,
-                            borderColor: 'white',
-                            alignSelf: 'center',
-                        }}
-                    />
+                <Toolbar sx={{gap: 2, minHeight: {xs: 60, sm: 64}}}>
+                    {/* Wordmark. "Parcel" is a placeholder brand for forkers to swap. */}
+                    <Stack direction="row" alignItems="center" spacing={1.25} sx={{flexShrink: 0}}>
+                        <Box sx={{
+                            width: 34, height: 34, borderRadius: 2,
+                            bgcolor: 'secondary.main', display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <PlaceIcon sx={{color: '#fff', fontSize: 20}}/>
+                        </Box>
+                        <Box sx={{lineHeight: 1}}>
+                            <Typography sx={{fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 800, fontSize: '1.15rem', color: '#fff', letterSpacing: '-0.01em'}}>
+                                Parcel
+                            </Typography>
+                            <Typography variant="overline" sx={{color: 'rgba(255,255,255,0.55)', display: {xs: 'none', sm: 'block'}}}>
+                                WebGIS template
+                            </Typography>
+                        </Box>
+                    </Stack>
 
-                    <Button color="inherit" onClick={() => window.location.reload()}>Home</Button>
-                    <Button color="inherit" onClick={() => setAboutOpen(true)}>About</Button>
+                    <Box sx={{flexGrow: 1}}/>
+
+                    {/* Segmented Map / Dashboard toggle. */}
+                    <ToggleButtonGroup
+                        size="small"
+                        exclusive
+                        value={currentView}
+                        onChange={(_, val) => { if (val && val !== currentView) toggleView(); }}
+                    >
+                        <ToggleButton value="map">
+                            <MapOutlinedIcon sx={{fontSize: 18, mr: 0.75}}/> Map
+                        </ToggleButton>
+                        <ToggleButton value="dashboard">
+                            <InsightsOutlinedIcon sx={{fontSize: 18, mr: 0.75}}/> Dashboard
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+
+                    <Box sx={{flexGrow: 1}}/>
+
+                    <Button color="inherit" onClick={() => setAboutOpen(true)} sx={{color: 'rgba(255,255,255,0.85)', display: {xs: 'none', sm: 'inline-flex'}}}>About</Button>
                     {isAuthenticated ? (
-                        <Button color="inherit" onClick={handleLogout}>Sign out</Button>
+                        <Button variant="outlined" onClick={handleLogout}
+                            sx={{color: '#fff', borderColor: 'rgba(255,255,255,0.4)', '&:hover': {borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.08)'}}}>
+                            Sign out
+                        </Button>
                     ) : (
-                        <Button color="inherit" onClick={() => setAuthOpen(true)}>Sign in</Button>
+                        <Button variant="contained" color="secondary" onClick={() => setAuthOpen(true)}>Sign in</Button>
                     )}
                 </Toolbar>
             </AppBar>
 
             {/* Main Content */}
-            <Box sx={{display: 'flex', flex: 1, position: 'relative', overflow: 'hidden'}}>
+            <Box sx={{display: 'flex', flex: 1, position: 'relative', overflow: 'hidden', minHeight: 0}}>
                 <Sidebar setMapCenter={setMapCenter}/>
-                <Box sx={{
-                    flex: 1,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    position: 'relative',
-                    overflow: 'auto'
-                }}>
-                    {/* MapView renders its own CollapsibleTable overlay once data loads. */}
-                    {currentView === 'map' && <MapView/>}
-                    {currentView === 'dashboard' && (
+                {currentView === 'map' ? (
+                    <Box sx={{flex: 1, display: 'flex', minWidth: 0}}>
+                        {/* MapView renders its own CollapsibleTable overlay once data loads. */}
+                        <MapView/>
+                        <ResultRail/>
+                    </Box>
+                ) : (
+                    <Box sx={{flex: 1, overflow: 'auto', minWidth: 0}}>
                         <Dashboard data={geojsonData?.features?.map(f => f.properties) ?? []}/>
-                    )}
-                </Box>
+                    </Box>
+                )}
             </Box>
 
             {/* About Modal */}

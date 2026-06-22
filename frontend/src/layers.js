@@ -24,7 +24,7 @@ export const LAYER_CONFIGS = [
         primary: true, // drives the attribute table, dashboard, and sidebar filters
         visible: true,
         source: { kind: 'geojson-url', url: MUNI_GEOJSON_URL },
-        style: { lineColor: '#0000ff', fillColor: '#0000ff', fillOpacity: 0.1, lineWidth: 2 },
+        style: { lineColor: '#232347', fillColor: '#232347', fillOpacity: 0.08, lineWidth: 1.5 },
         idField: 'OBJECTID',
         // Click popup: a title plus labelled rows. `format: 'number2'` -> 2 d.p.
         popup: {
@@ -66,7 +66,7 @@ export const LAYER_CONFIGS = [
         name: 'Demo Polygons (backend API)',
         visible: false,
         source: { kind: 'backend', endpoint: '/polygons' },
-        style: { lineColor: '#2e7d32', fillColor: '#2e7d32', fillOpacity: 0.15, lineWidth: 2 },
+        style: { lineColor: '#1f9d78', fillColor: '#1f9d78', fillOpacity: 0.15, lineWidth: 2 },
         idField: 'id',
         popup: {
             titleField: 'name',
@@ -77,6 +77,30 @@ export const LAYER_CONFIGS = [
 
 // The layer whose attributes power the table, dashboard, and sidebar filters.
 export const PRIMARY_LAYER = LAYER_CONFIGS.find((l) => l.primary) || LAYER_CONFIGS[0];
+
+// Rough geographic center of a GeoJSON feature (bounding-box midpoint), returned
+// as Leaflet-style [lat, lng] to match the store's convention. Used to fly the
+// map to a feature when its result card is clicked.
+export function featureCenter(feature) {
+    const geom = feature?.geometry;
+    if (!geom) return null;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const visit = (coords) => {
+        if (typeof coords[0] === 'number') {
+            const [x, y] = coords;
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+        } else {
+            for (const c of coords) visit(c);
+        }
+    };
+    if (geom.type === 'Point') visit(geom.coordinates);
+    else if (geom.coordinates) visit(geom.coordinates);
+    if (!Number.isFinite(minX)) return null;
+    return [(minY + maxY) / 2, (minX + maxX) / 2];
+}
 
 // Format a popup value per its row descriptor.
 export function formatPopupValue(value, format) {
